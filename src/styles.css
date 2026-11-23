@@ -1236,3 +1236,9 @@ button.switch:hover:not(:disabled) {
 .muted.tiny.settings-error {
   color: var(--bad);
 }
+
+/* Room for the macOS window buttons, which overlay the left of the tab bar. */
+.window-controls-space {
+  flex: 0 0 84px;
+  border-right: 1px solid var(--border);
+}

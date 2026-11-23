@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useUpdater } from "../composables/useUpdater";
 import { isMac } from "../platform";
 import {
@@ -70,12 +71,36 @@ function onAuxClick(event: MouseEvent, id: string) {
   if (event.button === 1) closeTab(id);
 }
 
-onBeforeUnmount(endReorder);
+/*
+ * On macOS the window's own close/minimize/zoom buttons sit over the left of
+ * the tab bar (an overlay title bar), so the bar leaves room for them, except
+ * in full screen, where macOS hides them.
+ */
+const fullscreen = ref(false);
+let stopResize: (() => void) | undefined;
+
+async function syncFullscreen() {
+  fullscreen.value = await getCurrentWindow()
+    .isFullscreen()
+    .catch(() => false);
+}
+
+onMounted(async () => {
+  if (!isMac) return;
+  await syncFullscreen();
+  stopResize = await getCurrentWindow().onResized(() => void syncFullscreen());
+});
+
+onBeforeUnmount(() => {
+  endReorder();
+  stopResize?.();
+});
 </script>
 
 <template>
-  <div class="tab-bar" role="tablist" aria-label="Open tabs">
-    <div ref="tabList" class="tab-list" :class="{ reordering: draggingId }">
+  <div class="tab-bar" role="tablist" aria-label="Open tabs" data-tauri-drag-region>
+    <div v-if="isMac && !fullscreen" class="window-controls-space" data-tauri-drag-region />
+    <div ref="tabList" class="tab-list" :class="{ reordering: draggingId }" data-tauri-drag-region>
       <div
         v-for="tab in tabs"
         :key="tab.id"
