@@ -17,4 +17,8 @@ export interface Settings {
   opacity: number;
   /** Blur radius behind the see-through background; 0 is off. */
   blur: number;
+  /** Close and Command+Q hide Dispatch; its tabs keep running. */
+  keepRunningInBackground: boolean;
+  /** Global shortcut that shows or hides Dispatch, like "Cmd+Backquote". Empty is off. */
+  toggleHotkey: string;
 }

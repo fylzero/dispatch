@@ -19,6 +19,10 @@ pub const FOCUS_LEFT_ID: &str = "focus-pane-left";
 pub const FOCUS_RIGHT_ID: &str = "focus-pane-right";
 pub const FOCUS_UP_ID: &str = "focus-pane-up";
 pub const FOCUS_DOWN_ID: &str = "focus-pane-down";
+/// Not "quit" or the predefined Quit: that one sends terminate: straight to
+/// NSApp, ending the process before "Keep running in the background" can
+/// turn ⌘Q into hiding the window.
+pub const QUIT_ID: &str = "app-quit";
 
 /// On macOS terminal shortcuts use Command; elsewhere Ctrl+W, Ctrl+T, Ctrl+K
 /// and friends belong to the shell, so they take Ctrl+Shift instead.
@@ -95,6 +99,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         &format!("{PANE_MOD}+Down"),
     )?;
     let settings = item(OPEN_SETTINGS_ID, "Settings…", "CmdOrCtrl+,")?;
+    #[cfg(target_os = "macos")]
+    let quit = item(QUIT_ID, &format!("Quit {}", pkg_info.name), "Cmd+Q")?;
     let check_updates = MenuItem::with_id(
         app,
         CHECK_FOR_UPDATES_ID,
@@ -129,7 +135,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
                     &PredefinedMenuItem::hide(app, None)?,
                     &PredefinedMenuItem::hide_others(app, None)?,
                     &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::quit(app, None)?,
+                    &quit,
                 ],
             )?,
             #[cfg(target_os = "macos")]
@@ -222,7 +228,15 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     )
 }
 
-pub fn handle_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
+pub fn handle_event(app: &AppHandle, id: &str) {
+    if id == QUIT_ID {
+        if crate::keep_running(app) {
+            crate::hide_main(app);
+        } else {
+            app.exit(0);
+        }
+        return;
+    }
     if !FORWARDED.contains(&id) {
         return;
     }

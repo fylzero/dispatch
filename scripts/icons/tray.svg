@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- A terminal window with a prompt, black on clear for a macOS template image. -->
+  <rect x="5" y="9" width="54" height="46" rx="9" fill="none" stroke="#000" stroke-width="6"/>
+  <g fill="none" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 24l9 8-9 8"/>
+    <path d="M32 41h14"/>
+  </g>
+</svg>

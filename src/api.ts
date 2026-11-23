@@ -9,6 +9,10 @@ export const getSettings = () => invoke<Settings>("get_settings");
 export const saveSettings = (settings: Settings) => invoke<Settings>("save_settings", { settings });
 export const setWindowBlur = (radius: number) => invoke<void>("set_window_blur", { radius });
 export const settingsFilePath = () => invoke<string>("settings_file_path");
+export const setToggleHotkey = (accelerator: string) => invoke<void>("set_toggle_hotkey", { accelerator });
+export const pauseToggleHotkey = (paused: boolean) => invoke<void>("pause_toggle_hotkey", { paused });
+/** Hides the window and leaves Dispatch in the menu bar. */
+export const hideWindow = () => invoke<void>("hide_window");
 
 export interface OpenTerminalOptions {
   cols: number;

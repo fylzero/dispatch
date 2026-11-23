@@ -41,6 +41,8 @@ It runs your own login shell (zsh, bash, fish, PowerShell, or whatever you use) 
 - **Fonts and cursor**: Pick the font, size, line height, and cursor shape
 - **Your shell**: Uses your login shell, or any shell you name in Settings
 - **Clickable links**: ⌘-click (Ctrl-click on Windows and Linux) a URL to open it
+- **Toggle from anywhere**: ⌘\` (Ctrl+\` on Windows and Linux) shows or hides Dispatch from any app. Change it, or turn it off, in Settings
+- **Lives in the menu bar**: Closing the window or quitting hides Dispatch with your tabs still running, until you quit from the menu bar icon. Turn off *Keep running in the background* in Settings to quit the usual way
 - **Automatic updates**: Checks GitHub for a new release on launch, and from the Change Log
 
 ## Keyboard Shortcuts
@@ -58,6 +60,7 @@ It runs your own login shell (zsh, bash, fish, PowerShell, or whatever you use) 
 | Copy / paste | ⌘C / ⌘V | Ctrl+Shift+C / Ctrl+Shift+V |
 | Bigger / smaller / actual size | ⌘+ / ⌘− / ⌘0 | Ctrl++ / Ctrl+− / Ctrl+0 |
 | Settings | ⌘, | Ctrl+, |
+| Show or hide Dispatch, from any app | ⌘\` | Ctrl+\` |
 
 On Windows and Linux, shortcuts that would take a key from the shell (Ctrl+C, Ctrl+W, Ctrl+D and so on) use Ctrl+Shift instead.
 

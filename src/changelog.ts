@@ -6,9 +6,12 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: "0.1.1",
+    version: "0.2.0",
     date: "November 23, 2026",
     notes: [
+      "Command+` shows or hides Dispatch from any app (Ctrl+` on Windows and Linux). It opens on the desktop you're on, and hiding it takes you back to the app you were in. Record a different shortcut, or turn it off, under Toggle hotkey in General settings.",
+      "Dispatch now has a menu bar icon (in the notification area on Windows and Linux) to show or hide it, open a new tab, open Settings, check for updates, or quit.",
+      "Command+Q and the close button now hide Dispatch instead of quitting, and your tabs keep running for next time. Closing the last tab hides it too, with a fresh tab ready. Quit from the menu bar icon to really quit, or turn off Keep running in the background in General settings to quit the usual way.",
       "On macOS, the window's corners are rounded cleanly again. The see-through background and its blur no longer show past the rounded corners as faint squares.",
     ],
   },

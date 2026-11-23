@@ -23,6 +23,21 @@ pub struct Settings {
     pub opacity: f32,
     /// Blur radius for what shows through the background; 0 turns it off.
     pub blur: u32,
+    /// Closing the window or quitting with ⌘Q hides Dispatch and keeps its
+    /// tabs running, so the toggle hotkey can bring them straight back.
+    /// Quit from the menu bar icon still quits.
+    pub keep_running_in_background: bool,
+    /// Global shortcut that shows or hides Dispatch from any app. Empty is off.
+    pub toggle_hotkey: String,
+}
+
+/// ⌘` on macOS, Ctrl+` elsewhere.
+pub fn default_toggle_hotkey() -> String {
+    if cfg!(target_os = "macos") {
+        "Cmd+Backquote".into()
+    } else {
+        "Ctrl+Backquote".into()
+    }
 }
 
 impl Default for Settings {
@@ -38,6 +53,8 @@ impl Default for Settings {
             scrollback: 10_000,
             opacity: 0.8,
             blur: 12,
+            keep_running_in_background: true,
+            toggle_hotkey: default_toggle_hotkey(),
         }
     }
 }

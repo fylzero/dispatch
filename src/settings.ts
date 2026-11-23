@@ -1,6 +1,7 @@
 import { ref, watch } from "vue";
 import * as api from "./api";
 import { clampFontSize, DEFAULT_FONT_SIZE } from "./fonts";
+import { isMac } from "./platform";
 import { sanitizeTheme, themePreference } from "./theme";
 import { showToast } from "./toast";
 import type { Settings } from "./types";
@@ -16,6 +17,8 @@ export const DEFAULT_SETTINGS: Settings = {
   scrollback: 10_000,
   opacity: 0.8,
   blur: 12,
+  keepRunningInBackground: true,
+  toggleHotkey: isMac ? "Cmd+Backquote" : "Ctrl+Backquote",
 };
 
 export const settings = ref<Settings>({ ...DEFAULT_SETTINGS, theme: themePreference.value });
