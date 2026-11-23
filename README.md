@@ -77,6 +77,14 @@ Dispatch updates itself: it checks GitHub for a newer release on launch and offe
 2. Open the DMG and drag Dispatch to your Applications folder
 3. Launch Dispatch from Applications
 
+Or install it with [Homebrew](https://brew.sh):
+
+```sh
+brew install fylzero/tap/dispatch
+```
+
+Dispatch updates itself, so Homebrew leaves upgrades to it. If Dispatch is already in Applications, add `--force` so Homebrew takes it over.
+
 ### Installation on Windows
 
 1. Download the latest installer: [Dispatch-windows-x64.exe](https://github.com/fylzero/dispatch/releases/latest/download/Dispatch-windows-x64.exe), or [Dispatch-windows-arm64.exe](https://github.com/fylzero/dispatch/releases/latest/download/Dispatch-windows-arm64.exe) on ARM PCs like Snapdragon laptops
