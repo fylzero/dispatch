@@ -1,4 +1,5 @@
 mod blur;
+mod corners;
 mod menu;
 mod pty;
 mod settings;
@@ -23,6 +24,9 @@ pub fn run() {
             let loaded = settings::load(app.handle());
             app.manage(SettingsState(Mutex::new(loaded)));
             app.manage(TerminalState::default());
+            if let Some(window) = app.get_webview_window("main") {
+                corners::round(&window);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.1.1",
+    date: "November 23, 2026",
+    notes: [
+      "On macOS, the window's corners are rounded cleanly again. The see-through background and its blur no longer show past the rounded corners as faint squares.",
+    ],
+  },
+  {
     version: "0.1.0",
     date: "November 23, 2026",
     notes: [
