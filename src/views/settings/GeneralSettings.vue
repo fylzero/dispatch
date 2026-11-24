@@ -21,6 +21,10 @@ function onShell(event: Event) {
   updateSettings({ shell: (event.target as HTMLInputElement).value.trim() });
 }
 
+function onStartDirectory(event: Event) {
+  updateSettings({ startDirectory: (event.target as HTMLInputElement).value.trim() || "~" });
+}
+
 function onScrollback(event: Event) {
   const input = event.target as HTMLInputElement;
   const value = Math.round(Number(input.value));
@@ -58,7 +62,7 @@ async function revealSettings() {
       <div class="settings-header">
         <div>
           <div class="brand">General</div>
-          <p class="muted tiny">Theme, the toggle hotkey, the shell new tabs start, and how much history they keep.</p>
+          <p class="muted tiny">Theme, the toggle hotkey, the shell and folder new tabs start in, and how much history they keep.</p>
         </div>
       </div>
 
@@ -132,6 +136,24 @@ async function revealSettings() {
               autocomplete="off"
               spellcheck="false"
               @change="onShell"
+            />
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Starting directory</h3>
+            <p class="muted tiny">Folder new tabs open in. ~ is your home folder, which is also used if this one is missing.</p>
+          </div>
+          <div class="settings-control settings-text">
+            <input
+              type="text"
+              :value="settings.startDirectory"
+              placeholder="~"
+              autocapitalize="off"
+              autocorrect="off"
+              autocomplete="off"
+              spellcheck="false"
+              @change="onStartDirectory"
             />
           </div>
         </div>

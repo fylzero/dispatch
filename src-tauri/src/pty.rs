@@ -104,11 +104,31 @@ fn pty_size(cols: u16, rows: u16) -> PtySize {
     }
 }
 
-/// The folder a new tab starts in: the one asked for if it exists, else home.
-fn start_dir(app: &AppHandle, cwd: Option<String>) -> Option<PathBuf> {
-    cwd.map(|path| PathBuf::from(path.trim()))
-        .filter(|path| path.is_dir())
-        .or_else(|| app.path().home_dir().ok())
+/// Turns `~` and `~/…` into paths under the home folder.
+fn expand_home(path: &str, home: Option<&PathBuf>) -> Option<PathBuf> {
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+    if path == "~" {
+        return home.cloned();
+    }
+    match path.strip_prefix("~/") {
+        Some(rest) => home.map(|home| home.join(rest)),
+        None => Some(PathBuf::from(path)),
+    }
+}
+
+/// The folder a new tab starts in: the one asked for, else the Starting
+/// directory setting, else home. Each is skipped when it is not a folder.
+fn start_dir(app: &AppHandle, cwd: Option<String>, configured: &str) -> Option<PathBuf> {
+    let home = app.path().home_dir().ok();
+    cwd.as_deref()
+        .into_iter()
+        .chain(std::iter::once(configured))
+        .filter_map(|path| expand_home(path, home.as_ref()))
+        .find(|path| path.is_dir())
+        .or(home)
 }
 
 /// Starts a shell in a new pseudo-terminal. Output streams back as raw bytes
@@ -136,14 +156,14 @@ pub fn open_terminal(
         .filter(|value| !value.is_empty())
         .unwrap_or_else(default_shell);
     let mut cmd = CommandBuilder::new(&shell);
-    let dispatch_prompt = app
+    let (dispatch_prompt, start_directory) = app
         .state::<SettingsState>()
         .0
         .lock()
-        .map(|settings| settings.dispatch_prompt)
-        .unwrap_or(true);
+        .map(|settings| (settings.dispatch_prompt, settings.start_directory.clone()))
+        .unwrap_or_else(|_| (true, String::new()));
     prompt::configure(&app, &mut cmd, &shell, dispatch_prompt);
-    if let Some(dir) = start_dir(&app, cwd) {
+    if let Some(dir) = start_dir(&app, cwd, &start_directory) {
         cmd.cwd(dir);
     }
     cmd.env("TERM", "xterm-256color");

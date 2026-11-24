@@ -18,6 +18,9 @@ pub struct Settings {
     pub cursor_blink: bool,
     /// Blank means the login shell from $SHELL.
     pub shell: String,
+    /// Folder new tabs start in. `~` is the home folder, and so is a blank
+    /// value or one that is not a folder.
+    pub start_directory: String,
     pub scrollback: u32,
     /// How opaque the terminal background is, from 0.3 to 1.
     pub opacity: f32,
@@ -53,6 +56,7 @@ impl Default for Settings {
             cursor_style: "block".into(),
             cursor_blink: true,
             shell: String::new(),
+            start_directory: "~".into(),
             scrollback: 10_000,
             opacity: 0.8,
             blur: 12,

@@ -12,6 +12,8 @@ export interface Settings {
   cursorBlink: boolean;
   /** Blank means the login shell from $SHELL. */
   shell: string;
+  /** Folder new tabs start in; `~` is home. Blank or missing folders fall back to home. */
+  startDirectory: string;
   scrollback: number;
   /** Terminal background opacity, 0.3–1. */
   opacity: number;

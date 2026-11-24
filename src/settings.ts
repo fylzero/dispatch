@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cursorStyle: "block",
   cursorBlink: true,
   shell: "",
+  startDirectory: "~",
   scrollback: 10_000,
   opacity: 0.8,
   blur: 12,
