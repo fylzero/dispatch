@@ -1,12 +1,12 @@
 #!/bin/sh
 # Regenerate every app icon.
 #   app-icon.png        the logo on a transparent square: Windows, Linux, README
-#   app-icon-macos.png  the logo on the olive squircle: macOS (icon.icns)
+#   app-icon-macos.png  the squircle tile: macOS Dock and Command-Tab (icon.icns)
 #   scripts/icons/tray.svg        the menu bar icon (a macOS template image)
 #   scripts/icons/tray-color.svg  the notification area icon on Windows and Linux
 # To rebuild those two from the original artwork (needs Pillow, NumPy, SciPy):
 #   python3 scripts/icons/cutout.py scripts/icons/logo-source.webp app-icon.png 1024
-#   python3 scripts/icons/squircle.py app-icon.png app-icon-macos.png
+#   python3 scripts/icons/fit-squircle.py squircle-art.png app-icon-macos.png
 set -e
 cd "$(dirname "$0")/.."
 TMP=$(mktemp -d)

@@ -230,9 +230,9 @@ See [macOS release setup](docs/macos-releases.md) for Apple enrollment, reposito
 The icons come from two images in the repo root:
 
 - `app-icon.png`: the logo on a transparent square, used for Windows, Linux, and this README
-- `app-icon-macos.png`: the logo on the olive squircle, used for the macOS icon
+- `app-icon-macos.png`: the squircle tile, used for the macOS icon in the Dock and Command-Tab
 
-After changing either, regenerate every size with `bun run icons`. Both were made from `scripts/icons/logo-source.webp` with `scripts/icons/cutout.py` (removes the flat background) and `scripts/icons/squircle.py` (places the logo on the tile); see `scripts/icons.sh` for the commands.
+After changing either, regenerate every size with `bun run icons`. `app-icon.png` was made from `scripts/icons/logo-source.webp` with `scripts/icons/cutout.py` (removes the flat background), and `app-icon-macos.png` from the squircle artwork with `scripts/icons/fit-squircle.py` (cuts the tile off its background and fits it to Apple's icon grid); see `scripts/icons.sh` for the commands.
 
 ## License
 

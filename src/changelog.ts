@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.2.1",
+    date: "November 23, 2026",
+    notes: [
+      "On macOS, Dispatch has a new icon in the Dock and the Command-Tab switcher, so it's easier to tell apart from Lockshot, Recon, and Shipyard at a glance. The logo inside the app and everywhere else is unchanged.",
+    ],
+  },
+  {
     version: "0.2.0",
     date: "November 23, 2026",
     notes: [
