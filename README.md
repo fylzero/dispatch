@@ -64,6 +64,44 @@ It runs your own login shell (zsh, bash, fish, PowerShell, or whatever you use) 
 
 On Windows and Linux, shortcuts that would take a key from the shell (Ctrl+C, Ctrl+W, Ctrl+D and so on) use Ctrl+Shift instead.
 
+## Screenshots
+
+### Command Blocks
+
+<p align="center">
+  <img src="docs/screenshots/01-terminal.png" alt="A terminal tab split into command blocks, each with Node version, folder, git branch and changed-file chips, showing git log, git status and a passing test run" width="100%">
+</p>
+
+Each command gets its own block, headed by chips for the Node version, folder, git branch, and changed files, with how long it took.
+
+### Split Panes
+
+<p align="center">
+  <img src="docs/screenshots/02-split-panes.png" alt="Three panes in one tab: command history on the left, a running server top right, and a request to it bottom right" width="100%">
+</p>
+
+Split side by side or stacked, as deep as you like, and drag the dividers to resize.
+
+### Settings
+
+<p align="center">
+  <img src="docs/screenshots/03-settings-general.png" alt="General settings: theme, toggle hotkey, keep running in the background, shell, starting directory and scrollback" width="100%">
+</p>
+
+Pick the theme, the toggle hotkey, your shell, and the folder new tabs start in.
+
+<p align="center">
+  <img src="docs/screenshots/04-settings-terminal.png" alt="Terminal settings: font, font size, line height, cursor, the Dispatch prompt, window opacity and background blur" width="100%">
+</p>
+
+Set the font, cursor, prompt, and how see-through the window is.
+
+### Demo
+
+<p align="center">
+  <img src="docs/demo.gif" alt="Dispatch demo: running git status and the tests, then splitting the tab side by side and stacked" width="100%">
+</p>
+
 ## Download and Install
 
 ### Requirements
