@@ -494,6 +494,16 @@ function schedulePin() {
   if (!pinFrame) pinFrame = requestAnimationFrame(pinToBottom);
 }
 
+/*
+ * Clicks in the pane outside xterm's own element (the space above a pinned
+ * prompt, or the padding) would take focus from the terminal; keep it there.
+ */
+function onPaneMouseDown(event: MouseEvent) {
+  if (!term?.element || term.element.contains(event.target as Node)) return;
+  event.preventDefault();
+  term.focus();
+}
+
 function syncSize() {
   if (!term || !fit || !host.value?.clientWidth) return;
   fit.fit();
@@ -751,7 +761,7 @@ watch(resolvedTheme, (theme) => {
 </script>
 
 <template>
-  <div class="terminal-pane">
+  <div class="terminal-pane" @mousedown="onPaneMouseDown">
     <div ref="host" class="terminal-host" />
   </div>
 </template>
