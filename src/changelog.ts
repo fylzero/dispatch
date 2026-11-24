@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.2.4",
+    date: "November 23, 2026",
+    notes: [
+      "New default terminal settings: 16px text with 1.20 line height, a bar cursor, and an 8px background blur. Reset in Terminal settings now returns to these values.",
+    ],
+  },
+  {
     version: "0.2.3",
     date: "November 23, 2026",
     notes: [

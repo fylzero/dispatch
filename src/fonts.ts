@@ -20,7 +20,7 @@ export const FONT_OPTIONS: { id: string; label: string; stack: string }[] = [
 
 export const CUSTOM_FONT_ID = "custom";
 export const DEFAULT_CODE_FONT = "jetbrains";
-export const DEFAULT_FONT_SIZE = 14;
+export const DEFAULT_FONT_SIZE = 16;
 export const FONT_SIZE_MIN = 9;
 export const FONT_SIZE_MAX = 32;
 
