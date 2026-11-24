@@ -20,6 +20,7 @@ export const CHANGELOG: ChangelogRelease[] = [
       "The terminal's scrollbar is now slim and rounded like the rest of macOS, and it fades when you stop scrolling. Text no longer runs underneath it, and the line you're typing has a little more room above the bottom edge.",
       "Choose the folder new tabs open in with Starting directory in General settings. It starts as ~, your home folder, which new tabs also fall back to if the folder you pick is missing.",
       "On macOS, the window's corners are rounded cleanly again. The see-through background and its blur no longer show past the rounded corners as faint squares.",
+      "The GitHub link and the version number sit in the tab bar next to the settings gear, and the bar along the bottom of the window is gone. Click the version to open the Change Log.",
     ],
   },
   {
