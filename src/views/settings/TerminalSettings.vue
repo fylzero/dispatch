@@ -223,6 +223,29 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
             </button>
           </div>
         </div>
+        <div class="settings-row" :class="{ disabled: !settings.dispatchPrompt }">
+          <div class="settings-row-copy">
+            <h3>Type below the prompt</h3>
+            <p class="muted tiny">
+              Puts the cursor on its own line under the Dispatch prompt. Turn it off to type right after the chips.
+              Applies to new tabs.
+            </p>
+          </div>
+          <div class="settings-control">
+            <button
+              class="switch"
+              :class="{ on: settings.typeBelowPrompt }"
+              type="button"
+              role="switch"
+              :aria-checked="settings.typeBelowPrompt"
+              :disabled="!settings.dispatchPrompt"
+              aria-label="Type below the prompt"
+              @click="updateSettings({ typeBelowPrompt: !settings.typeBelowPrompt })"
+            >
+              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
+            </button>
+          </div>
+        </div>
         <div class="settings-row">
           <div class="settings-row-copy">
             <h3>Window opacity</h3>

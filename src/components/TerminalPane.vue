@@ -149,11 +149,299 @@ function addChip(kind: string, marker: IMarker, x: number, width: number) {
   chips.push(chip);
 }
 
+/*
+ * Blocks: the prompt also marks where it starts ("prompt"), where a command
+ * starts ("exec"), and where it ends ("done;<exit code>"). Each prompt line
+ * gets a border above it, so every command and its output sit in a block of
+ * their own, and the run time shows at the right end of the line once the
+ * command ends.
+ */
+interface Block {
+  marker: IMarker;
+  decoration: IDecoration;
+  startedAt: number;
+  label?: IDecoration;
+}
+
+let blocks: Block[] = [];
+
+/*
+ * Keys the Dispatch prompt binds, used only while a prompt that says so
+ * ("prompt;newline") is waiting for input. Anywhere else (a command running,
+ * another prompt) these keys do what they always do.
+ *
+ * Shift+Enter adds a line to the command instead of running it: xterm sends
+ * the same \r as Enter, so the pane sends CSI 13;2u instead.
+ *
+ * Select All selects just the command being typed, every line of it, starting
+ * where the prompt's "input" mark says it does; Backspace or Delete then sends
+ * CSI 127;9u, which clears the command.
+ *
+ * Option+Shift and Command+Shift with Left/Right select on the cursor's line
+ * the way a macOS text field does: the selection is anchored at the cursor,
+ * and each press moves its other end a word (stopping at punctuation) or all
+ * the way to the line's start or end. Backspace or Delete then deletes those
+ * characters with ordinary keys: Backspaces for text left of the cursor, or
+ * Right arrows and then Backspaces for text right of it.
+ */
+const SHIFT_ENTER = "\x1b[13;2u";
+const CLEAR_INPUT = "\x1b[127;9u";
+/*
+ * Option+Left/Right move by word. The Dispatch prompt binds xterm's own
+ * sequences for them (words end at punctuation); anywhere else the pane sends
+ * Esc b / Esc f, which shells and other readline programs know.
+ */
+const WORD_LEFT = { prompt: "\x1b[1;3D", other: "\x1bb" };
+const WORD_RIGHT = { prompt: "\x1b[1;3C", other: "\x1bf" };
+let promptBindsKeys = false;
+let inputStart: { marker: IMarker; x: number } | null = null;
+
+/**
+ * The cursor's line, which may wrap onto more rows: it starts at cell `x` of
+ * row `y` (after the prompt on a command's first line), and positions on it
+ * are cells counted from the start of row `y`. `end` is where its text stops.
+ */
+interface LineSpan {
+  y: number;
+  x: number;
+  end: number;
+}
+
+/** A selection the pane made: the whole command, or part of the cursor's line from `anchor` (the cursor) to `focus`. */
+type InputSelection = { kind: "all" } | { kind: "range"; line: LineSpan; anchor: number; focus: number };
+
+let inputSelection: InputSelection | null = null;
+let selectingInput = false;
+
+function setInputStart(x: number) {
+  inputStart?.marker.dispose();
+  inputStart = term ? { marker: term.registerMarker(0), x } : null;
+}
+
+function forgetInput() {
+  inputStart?.marker.dispose();
+  inputStart = null;
+  inputSelection = null;
+}
+
+/** Selects `length` cells from (x, y) as `selection`, or clears the selection when empty. */
+function selectCells(x: number, y: number, length: number, selection: InputSelection) {
+  if (!term) return;
+  selectingInput = true;
+  if (length > 0) term.select(x, y, length);
+  else term.clearSelection();
+  selectingInput = false;
+  inputSelection = length > 0 ? selection : null;
+}
+
+/** The cursor's line and the cursor's position on it. */
+function cursorLine(): { line: LineSpan; cursor: number } | undefined {
+  const buffer = term?.buffer.active;
+  if (!term || !buffer || buffer.type !== "normal") return;
+  const cursorY = buffer.baseY + buffer.cursorY;
+  const inputY = inputStart && inputStart.marker.line >= 0 ? inputStart.marker.line : -1;
+  let y = cursorY;
+  while (y > inputY && y > 0 && buffer.getLine(y)?.isWrapped) y--;
+  const x = y === inputY && inputStart ? inputStart.x : 0;
+  let last = cursorY;
+  while (buffer.getLine(last + 1)?.isWrapped) last++;
+  const text = buffer.getLine(last)?.translateToString(true).length ?? 0;
+  const cursor = (cursorY - y) * term.cols + buffer.cursorX;
+  const end = Math.max((last - y) * term.cols + text, cursor);
+  return { line: { y, x, end }, cursor };
+}
+
+/** The character in the cell at `pos` on `line`; "" for an empty cell or the second half of a wide character. */
+function charAt(line: LineSpan, pos: number) {
+  if (!term) return "";
+  const row = term.buffer.active.getLine(line.y + Math.floor(pos / term.cols));
+  return row?.getCell(pos % term.cols)?.getChars() ?? "";
+}
+
+/** Whether the character before `pos` is part of a word (letters, digits, _), looking past the halves of wide characters. */
+function wordBefore(line: LineSpan, pos: number) {
+  let at = pos - 1;
+  while (at > line.x && charAt(line, at) === "") at--;
+  return /[\p{L}\p{N}_]/u.test(charAt(line, at));
+}
+
+function wordAt(line: LineSpan, pos: number) {
+  return /[\p{L}\p{N}_]/u.test(charAt(line, pos)) || (charAt(line, pos) === "" && pos > line.x && wordBefore(line, pos));
+}
+
+/** The start of the word before `pos`, as Option+Left moves. */
+function previousWord(line: LineSpan, pos: number) {
+  while (pos > line.x && !wordBefore(line, pos)) pos--;
+  while (pos > line.x && wordBefore(line, pos)) pos--;
+  return pos;
+}
+
+/** The end of the word after `pos`, as Option+Right moves. */
+function nextWord(line: LineSpan, pos: number) {
+  while (pos < line.end && !wordAt(line, pos)) pos++;
+  while (pos < line.end && wordAt(line, pos)) pos++;
+  return pos;
+}
+
+/** Moves the selection's free end with `move`, starting a new selection at the cursor if there is none on its line. */
+function extendSelection(move: (line: LineSpan, focus: number) => number) {
+  if (!term) return;
+  let selection = inputSelection?.kind === "range" ? inputSelection : null;
+  if (!selection) {
+    const at = cursorLine();
+    if (!at) return;
+    selection = { kind: "range", line: at.line, anchor: at.cursor, focus: at.cursor };
+  }
+  const focus = move(selection.line, selection.focus);
+  const from = Math.min(selection.anchor, focus);
+  const to = Math.max(selection.anchor, focus);
+  const { line } = selection;
+  selectCells(from % term.cols, line.y + Math.floor(from / term.cols), to - from, { ...selection, focus });
+}
+
+/** Keys that delete a range selection in the shell. */
+function deleteRange(selection: Extract<InputSelection, { kind: "range" }>) {
+  const from = Math.min(selection.anchor, selection.focus);
+  const to = Math.max(selection.anchor, selection.focus);
+  let count = 0;
+  for (let pos = from; pos < to; pos++) if (charAt(selection.line, pos) !== "") count++;
+  const right = term?.modes.applicationCursorKeysMode ? "\x1bOC" : "\x1b[C";
+  const back = "\x7f".repeat(count);
+  return selection.focus < selection.anchor ? back : right.repeat(count) + back;
+}
+
+/** Selects the command typed so far. False when there is nothing typed to select. */
+function selectInput() {
+  const buffer = term?.buffer.active;
+  if (!term || !buffer || !promptBindsKeys || !inputStart || buffer.type !== "normal") return false;
+  const startY = inputStart.marker.line;
+  if (startY < 0) return false;
+  const startX = inputStart.x;
+  let endY = startY;
+  let endX = startX;
+  for (let y = buffer.baseY + term.rows - 1; y >= startY; y--) {
+    const text = buffer.getLine(y)?.translateToString(true) ?? "";
+    const length = y === startY ? Math.max(text.length, startX) : text.length;
+    if (length > (y === startY ? startX : 0)) {
+      endY = y;
+      endX = length;
+      break;
+    }
+  }
+  const length = (endY - startY) * term.cols + endX - startX;
+  if (length <= 0) return false;
+  selectCells(startX, startY, length, { kind: "all" });
+  return true;
+}
+
+function disposeBlock(block: Block) {
+  block.label?.dispose();
+  block.decoration.dispose();
+  block.marker.dispose();
+}
+
+function lineIsBlank(line: number) {
+  return line < 0 || lineText(line, 0, term?.cols ?? 0).trim() === "";
+}
+
+function renderBlock(block: Block, el: HTMLElement) {
+  el.hidden = lineIsBlank(block.marker.line);
+  if (el.hidden || !term) return;
+  el.style.setProperty("--cell", el.style.width);
+  el.style.setProperty("--row", el.style.height);
+  el.style.setProperty("--cols", String(term.cols));
+  el.classList.add("block-start");
+  /* The border goes in the blank line the prompt prints first; without one (an older prompt) it stays off the text above. */
+  el.classList.toggle("gap", lineIsBlank(block.marker.line - 1));
+}
+
+function addBlock() {
+  if (!term) return;
+  const marker = term.registerMarker(0);
+  /* A prompt redrawn in place (resizing, Ctrl+L) is still the same block. */
+  const same = blocks.find((block) => block.marker.line === marker.line);
+  if (same) {
+    marker.dispose();
+    return;
+  }
+  const decoration = term.registerDecoration({ marker, x: 0, width: 1 });
+  if (!decoration) {
+    marker.dispose();
+    return;
+  }
+  const block: Block = { marker, decoration, startedAt: 0 };
+  decoration.onRender((el) => renderBlock(block, el));
+  marker.onDispose(() => {
+    block.label?.dispose();
+    blocks = blocks.filter((other) => other !== block);
+  });
+  blocks.push(block);
+}
+
+function formatDuration(ms: number) {
+  if (ms < 1000) return `${Math.max(0, Math.round(ms))}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)}s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.floor((ms % 60_000) / 1000);
+  if (minutes < 60) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}
+
+/** Shows how long the block's command ran, and its exit code when it failed, at the right end of its prompt line. */
+function finishBlock(block: Block, code: string) {
+  if (!term || !block.startedAt) return;
+  const failed = code !== "" && code !== "0";
+  const text = `${failed ? `exit ${code} · ` : ""}${formatDuration(performance.now() - block.startedAt)}`;
+  block.startedAt = 0;
+  /* One blank cell between the label and whatever is to its left. */
+  const width = text.length + 1;
+  const label = term.registerDecoration({ marker: block.marker, anchor: "right", x: 0, width });
+  if (!label) return;
+  block.label?.dispose();
+  block.label = label;
+  label.onRender((el) => {
+    const line = block.marker.line;
+    const cols = term?.cols ?? 0;
+    /* Only over empty cells, so it never covers a long prompt or command. */
+    el.hidden = line < 0 || lineText(line, cols - width, cols).trim() !== "";
+    if (el.hidden || el.dataset.label) return;
+    el.dataset.label = text;
+    el.textContent = text;
+    el.classList.add("block-time");
+    el.classList.toggle("failed", failed);
+  });
+}
+
+/** ED 2 and 3 (clear) wipe the screen; blocks on it are gone, even though their lines may fill up again. */
+function onEraseDisplay(params: (number | number[])[]) {
+  const mode = params[0];
+  const buffer = term?.buffer.active;
+  if (buffer?.type === "normal" && (mode === 2 || mode === 3)) {
+    const top = mode === 3 ? 0 : buffer.baseY;
+    for (const block of [...blocks]) {
+      if (block.marker.line >= top) disposeBlock(block);
+    }
+  }
+  return false;
+}
+
 function onPromptMark(data: string) {
   const buffer = term?.buffer.active;
   if (!term || !buffer || buffer.type !== "normal") return true;
   const [mark, kind] = data.split(";");
-  if (mark === "chip" && kind in CHIP_ICONS) {
+  const current = blocks[blocks.length - 1];
+  if (mark === "prompt") {
+    promptBindsKeys = kind === "newline";
+    addBlock();
+  } else if (mark === "input") {
+    setInputStart(buffer.cursorX);
+  } else if (mark === "exec") {
+    promptBindsKeys = false;
+    forgetInput();
+    if (current) current.startedAt = performance.now();
+  } else if (mark === "done") {
+    if (current) finishBlock(current, kind ?? "");
+  } else if (mark === "chip" && kind in CHIP_ICONS) {
     chipStart?.marker.dispose();
     chipStart = { kind, marker: term.registerMarker(0), x: buffer.cursorX };
   } else if (mark === "end" && chipStart) {
@@ -165,6 +453,45 @@ function onPromptMark(data: string) {
     else addChip(start.kind, start.marker, start.x, width);
   }
   return true;
+}
+
+/*
+ * Until output fills the pane, the screen sits lower so its last line in use
+ * (the prompt, usually) is at the bottom, and output grows upward from it.
+ * The pane fits a whole number of rows, so the screen also moves down by
+ * what is left over, or that strip would look like an extra blank line under
+ * the prompt. Only the drawing moves; the shell still sees an ordinary screen.
+ */
+let pinFrame = 0;
+
+function pinToBottom() {
+  pinFrame = 0;
+  const el = term?.element;
+  const buffer = term?.buffer.active;
+  if (!term || !el || !buffer) return;
+  let offset = 0;
+  if (buffer.type === "normal" && buffer.viewportY === buffer.baseY) {
+    let last = buffer.cursorY;
+    for (let y = term.rows - 1; y > last; y--) {
+      if (!lineIsBlank(buffer.baseY + y)) {
+        last = y;
+        break;
+      }
+    }
+    const screen = el.querySelector<HTMLElement>(".xterm-screen");
+    if (screen) {
+      const cellHeight = screen.clientHeight / term.rows;
+      const leftover = Math.max(0, el.clientHeight - screen.clientHeight);
+      offset = Math.floor((term.rows - 1 - last) * cellHeight + leftover);
+    }
+  }
+  el.style.transform = offset ? `translateY(${offset}px)` : "";
+  /* Where overflow: clip is missing, the pane can still scroll to show xterm's input; keep it put. */
+  if (host.value && host.value.scrollTop) host.value.scrollTop = 0;
+}
+
+function schedulePin() {
+  if (!pinFrame) pinFrame = requestAnimationFrame(pinToBottom);
 }
 
 function syncSize() {
@@ -212,11 +539,80 @@ async function start() {
   }
 }
 
+function send(data: string) {
+  if (sessionId) void api.writeTerminal(sessionId, data).catch(() => undefined);
+}
+
+/** Select All: just the command at a Dispatch prompt with something typed, otherwise everything. */
+function selectAll() {
+  if (!selectInput()) term?.selectAll();
+}
+
+/**
+ * macOS text-field keys, outside full-screen apps (which get xterm's usual keys):
+ * Command+A selects (handled here, before xterm selects everything and the
+ * menu's Select All then narrows it, which flashed), Command+Left/Right go to
+ * the start or end of the line (Ctrl+A / Ctrl+E), Option+Left/Right move by
+ * word, and with Shift both select to there instead. Returns what to do, or
+ * nothing for any other key.
+ */
+function macTextKey(event: KeyboardEvent): (() => void) | undefined {
+  if (!isMac || event.ctrlKey || term?.buffer.active.type !== "normal") return;
+  const command = event.metaKey && !event.altKey && !event.shiftKey;
+  const option = event.altKey && !event.metaKey && !event.shiftKey;
+  const commandShift = event.metaKey && event.shiftKey && !event.altKey;
+  const optionShift = event.altKey && event.shiftKey && !event.metaKey;
+  if (commandShift && event.key === "ArrowLeft") return () => extendSelection((line) => line.x);
+  if (commandShift && event.key === "ArrowRight") return () => extendSelection((line) => line.end);
+  if (optionShift && event.key === "ArrowLeft") return () => extendSelection(previousWord);
+  if (optionShift && event.key === "ArrowRight") return () => extendSelection(nextWord);
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  if (command && key === "a") return selectAll;
+  const move = (data: string) => () => {
+    inputSelection = null;
+    term?.clearSelection();
+    send(data);
+  };
+  if (command && key === "ArrowLeft") return move("\x01");
+  if (command && key === "ArrowRight") return move("\x05");
+  const words = promptBindsKeys ? "prompt" : "other";
+  if (option && key === "ArrowLeft") return move(WORD_LEFT[words]);
+  if (option && key === "ArrowRight") return move(WORD_RIGHT[words]);
+}
+
+/** Keys that only change the selection or copy it, which leave the command selected. */
+function keepsInputSelected(event: KeyboardEvent) {
+  return ["Shift", "Meta", "Control", "Alt", "CapsLock"].includes(event.key) || event.metaKey || (event.ctrlKey && event.shiftKey);
+}
+
 /**
  * Keys the page handles instead of the shell. On Windows and Linux,
- * Ctrl+Shift+C/V copy and paste, so plain Ctrl+C stays an interrupt.
+ * Ctrl+Shift+C/V copy and paste, so plain Ctrl+C stays an interrupt. At a
+ * Dispatch prompt, Shift+Enter adds a line and Backspace deletes the part of
+ * the command the pane selected (see SHIFT_ENTER).
  */
 function onKey(event: KeyboardEvent) {
+  const atPrompt = promptBindsKeys && term?.buffer.active.type === "normal";
+  const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
+  if (event.key === "Enter" && event.shiftKey && plain && atPrompt) {
+    if (event.type === "keydown") send(SHIFT_ENTER);
+    return false;
+  }
+  const mac = macTextKey(event);
+  if (mac) {
+    if (event.type === "keydown") mac();
+    return false;
+  }
+  if (inputSelection && event.type === "keydown" && !keepsInputSelected(event)) {
+    const selected = inputSelection;
+    const remove = atPrompt && plain && !event.shiftKey && (event.key === "Backspace" || event.key === "Delete");
+    inputSelection = null;
+    term?.clearSelection();
+    if (remove) {
+      send(selected.kind === "all" ? CLEAR_INPUT : deleteRange(selected));
+      return false;
+    }
+  }
   if (event.type !== "keydown" || isMac || !event.ctrlKey || !event.shiftKey) return true;
   const key = event.key.toLowerCase();
   if (key === "c") {
@@ -270,11 +666,26 @@ onMounted(async () => {
   });
   term.onTitleChange((title) => setTerminalTitle(props.id, title));
   term.parser.registerOscHandler(PROMPT_OSC, onPromptMark);
+  term.onSelectionChange(() => {
+    if (!selectingInput) inputSelection = null;
+  });
+  term.parser.registerCsiHandler({ final: "J" }, onEraseDisplay);
+  term.onRender(schedulePin);
+  term.onScroll(schedulePin);
+  term.onResize(schedulePin);
 
   unregister = registerTerminal(props.id, {
     focus: () => term?.focus(),
-    clear: () => term?.clear(),
-    selectAll: () => term?.selectAll(),
+    clear: () => {
+      term?.clear();
+      /* clear() keeps only the cursor's line; drop the blocks above it. */
+      const line = term ? term.buffer.active.baseY + term.buffer.active.cursorY : 0;
+      for (const block of [...blocks]) {
+        if (block.marker.line !== line) disposeBlock(block);
+      }
+      schedulePin();
+    },
+    selectAll,
   });
 
   resizeObserver = new ResizeObserver(() => syncSize());
@@ -292,6 +703,11 @@ onUnmounted(() => {
   sessionId = "";
   chips = [];
   chipStart = null;
+  blocks = [];
+  promptBindsKeys = false;
+  forgetInput();
+  cancelAnimationFrame(pinFrame);
+  pinFrame = 0;
   term?.dispose();
   term = null;
   fit = null;

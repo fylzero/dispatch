@@ -1,14 +1,67 @@
 # The Dispatch prompt: Node version, folder, git branch, and changed files,
 # printed as plain text. Each chip is wrapped in OSC 6973 marks so Dispatch can
 # draw a border and icon around it; the marks take no space on screen.
+# More marks split the screen into one block per command: "prompt" where the
+# prompt starts, "exec" when a command starts, "done;<exit code>" when it ends.
+# "prompt;newline" also tells Dispatch that the prompt binds its keys:
+# Shift+Enter, sent as CSI 13;2u, adds a line instead of running the command,
+# CSI 127;9u clears the whole command (Select All, then Backspace), and
+# Option+Left/Right (CSI 1;3D and 1;3C) move by word, stopping at punctuation.
+# "input" marks where the command starts, after the chips.
 
 typeset -g __dispatch_node_key="" __dispatch_node_ver=""
 # What the prompt shows, read through prompt_subst so a branch or folder name is
 # never run as code; % is doubled so it isn't read as a prompt escape either.
 typeset -g __dispatch_ver="" __dispatch_branch=""
+typeset -gi __dispatch_ran=0
+# Dispatch sets this when commands are typed right after the chips instead of on the line below.
+typeset -gi __dispatch_inline=${DISPATCH_PROMPT_INLINE:-0}
+unset DISPATCH_PROMPT_INLINE
 setopt prompt_subst
 
+__dispatch_newline() {
+  LBUFFER+=$'\n'
+}
+zle -N __dispatch_newline
+bindkey -M emacs $'\e[13;2u' __dispatch_newline
+bindkey -M viins $'\e[13;2u' __dispatch_newline
+
+__dispatch_clear() {
+  BUFFER=""
+  CURSOR=0
+}
+zle -N __dispatch_clear
+bindkey -M emacs $'\e[127;9u' __dispatch_clear
+bindkey -M viins $'\e[127;9u' __dispatch_clear
+
+# Words end at punctuation, as in macOS text fields, so a path is several
+# words. Only these keys see the narrower WORDCHARS; Ctrl+W and the rest keep yours.
+__dispatch_word_left() {
+  local WORDCHARS='_'
+  zle .backward-word
+}
+__dispatch_word_right() {
+  local WORDCHARS='_'
+  zle .emacs-forward-word
+}
+zle -N __dispatch_word_left
+zle -N __dispatch_word_right
+bindkey -M emacs $'\e[1;3D' __dispatch_word_left
+bindkey -M viins $'\e[1;3D' __dispatch_word_left
+bindkey -M emacs $'\e[1;3C' __dispatch_word_right
+bindkey -M viins $'\e[1;3C' __dispatch_word_right
+
+__dispatch_preexec() {
+  __dispatch_ran=1
+  print -n $'\e]6973;exec\a'
+}
+
 __dispatch_prompt() {
+  local -i code=$?
+  if (( __dispatch_ran )); then
+    __dispatch_ran=0
+    print -n $'\e]6973;done;'"$code"$'\a'
+  fi
   local dir=$PWD node_root="" git_root="" ver="" branch="" changes=""
   while true; do
     [[ -z $node_root && ( -e $dir/package.json || -e $dir/.nvmrc || -e $dir/.node-version ) ]] && node_root=$dir
@@ -51,6 +104,8 @@ __dispatch_prompt() {
   __dispatch_branch=${branch//\%/%%}
   local e=$'\e' b=$'\a' p=""
   local end="%{${e}]6973;end${b}%}"
+  # A blank line first: Dispatch draws the block's border through the middle of it.
+  p=$'\n'"%{${e}]6973;prompt;newline${b}%}"
   # A chip is one cell of padding, two for the icon, the text, and one more cell of padding.
   [[ -n $ver ]] && p+="%{${e}]6973;chip;node${b}%}   %F{green}\${__dispatch_ver}%f ${end} "
   p+="%{${e}]6973;chip;cwd${b}%}   %~ ${end} "
@@ -60,6 +115,9 @@ __dispatch_prompt() {
     (( changes > 0 )) && color=yellow
     p+="%{${e}]6973;chip;changes${b}%} %F{${color}}± ${changes}%f ${end} "
   fi
+  # The command goes on its own line under the chips, unless set to follow them.
+  (( __dispatch_inline )) || p="${p% }"$'\n'
+  p+="%{${e}]6973;input${b}%}"
   setopt prompt_subst
   PROMPT=$p
   RPROMPT=""
@@ -67,3 +125,4 @@ __dispatch_prompt() {
 
 # Last in line, so a theme's own precmd can't put its prompt back over this one.
 precmd_functions=(${precmd_functions:#__dispatch_prompt} __dispatch_prompt)
+preexec_functions=(${preexec_functions:#__dispatch_preexec} __dispatch_preexec)

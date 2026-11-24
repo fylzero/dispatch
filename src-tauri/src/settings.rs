@@ -29,6 +29,9 @@ pub struct Settings {
     /// Replace the zsh or bash prompt with chips for the Node version, folder,
     /// git branch, and changed files. Applies to new tabs.
     pub dispatch_prompt: bool,
+    /// With the Dispatch prompt, commands are typed on the line below the
+    /// chips instead of right after them. Applies to new tabs.
+    pub type_below_prompt: bool,
     /// Closing the window or quitting with ⌘Q hides Dispatch and keeps its
     /// tabs running, so the toggle hotkey can bring them straight back.
     /// Quit from the menu bar icon still quits.
@@ -61,6 +64,7 @@ impl Default for Settings {
             opacity: 0.8,
             blur: 12,
             dispatch_prompt: true,
+            type_below_prompt: true,
             keep_running_in_background: true,
             toggle_hotkey: default_toggle_hotkey(),
         }

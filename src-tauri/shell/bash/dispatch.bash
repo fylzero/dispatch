@@ -14,13 +14,32 @@ fi
 # The Dispatch prompt: Node version, folder, git branch, and changed files,
 # printed as plain text. Each chip is wrapped in OSC 6973 marks so Dispatch can
 # draw a border and icon around it; the marks take no space on screen.
+# More marks split the screen into one block per command: "prompt" where the
+# prompt starts, "exec" when a command starts (bash 4.4 and later, through
+# PS0), "done;<exit code>" when it ends. "prompt;newline" also tells Dispatch
+# that the prompt binds its keys: Shift+Enter, sent as CSI 13;2u, continues the
+# command on a new line, CSI 127;9u clears the line being typed (Select All,
+# then Backspace), and Option+Left/Right (CSI 1;3D and 1;3C) move by word. bash only says so from 4.4 on, since before that
+# Dispatch can't tell when a command is running. "input" marks where the
+# command starts, after the chips.
 __dispatch_node_key=""
 __dispatch_node_ver=""
 # What the prompt shows, read through promptvars so a branch name is never run as code.
 __dispatch_ver=""
 __dispatch_branch=""
+__dispatch_code=0
+# Dispatch sets this when commands are typed right after the chips instead of on the line below.
+__dispatch_inline=${DISPATCH_PROMPT_INLINE:-0}
+unset DISPATCH_PROMPT_INLINE
+__dispatch_newline_mark=""
+
+# Hands the last command's exit code back, so PROMPT_COMMAND still sees it after Dispatch reads it.
+__dispatch_keep() {
+  return "$__dispatch_code"
+}
 
 __dispatch_prompt() {
+  printf '\e]6973;done;%s\a' "$__dispatch_code"
   local dir=$PWD node_root="" git_root="" ver="" branch="" changes=""
   while true; do
     if [ -z "$node_root" ] && { [ -e "$dir/package.json" ] || [ -e "$dir/.nvmrc" ] || [ -e "$dir/.node-version" ]; }; then
@@ -63,7 +82,8 @@ __dispatch_prompt() {
 
   __dispatch_ver=$ver
   __dispatch_branch=$branch
-  local end='\[\e]6973;end\a\]' p=""
+  local end='\[\e]6973;end\a\]' p='\n\[\e]6973;prompt'"$__dispatch_newline_mark"'\a\]'
+  # The prompt starts with a blank line: Dispatch draws the block's border through the middle of it.
   # A chip is one cell of padding, two for the icon, the text, and one more cell of padding.
   [ -n "$ver" ] && p+='\[\e]6973;chip;node\a\]   \[\e[32m\]${__dispatch_ver}\[\e[39m\] '"$end "
   p+='\[\e]6973;chip;cwd\a\]   \w '"$end "
@@ -73,13 +93,29 @@ __dispatch_prompt() {
     [ "$changes" -gt 0 ] && color=33
     p+='\[\e]6973;chip;changes\a\] \[\e['"$color"'m\]± '"$changes"'\[\e[39m\] '"$end "
   fi
+  # The command goes on its own line under the chips, unless set to follow them.
+  [ "$__dispatch_inline" = 1 ] || p="${p% }\n"
+  p+='\[\e]6973;input\a\]'
   shopt -s promptvars
   PS1=$p
 }
 
 # Last in line, so the user's own PROMPT_COMMAND can't put its prompt back over this one.
+# The exit code is read first, before anything else can change it.
 if [ -n "$PROMPT_COMMAND" ]; then
-  PROMPT_COMMAND="$PROMPT_COMMAND"$'\n'"__dispatch_prompt"
+  PROMPT_COMMAND='__dispatch_code=$?; __dispatch_keep'$'\n'"$PROMPT_COMMAND"$'\n'"__dispatch_prompt"
 else
-  PROMPT_COMMAND="__dispatch_prompt"
+  PROMPT_COMMAND='__dispatch_code=$?; __dispatch_prompt'
+fi
+# PS0 prints as each command starts; bash before 4.4 has no PS0, so its blocks have no run time.
+if [ "${BASH_VERSINFO[0]}" -gt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -ge 4 ]; }; then
+  PS0="${PS0}"$'\e]6973;exec\a'
+  # Readline can't show a newline inside the line it edits (it prints ^J), so
+  # Shift+Enter continues the command on the next line with a trailing backslash.
+  bind '"\e[13;2u": "\C-e \\\C-m"'
+  bind '"\e[127;9u": "\C-e\C-u"'
+  # Readline's words already end at punctuation.
+  bind '"\e[1;3D": backward-word'
+  bind '"\e[1;3C": forward-word'
+  __dispatch_newline_mark=";newline"
 fi

@@ -156,13 +156,23 @@ pub fn open_terminal(
         .filter(|value| !value.is_empty())
         .unwrap_or_else(default_shell);
     let mut cmd = CommandBuilder::new(&shell);
-    let (dispatch_prompt, start_directory) = app
+    let (dispatch_prompt, type_below_prompt, start_directory) = app
         .state::<SettingsState>()
         .0
         .lock()
-        .map(|settings| (settings.dispatch_prompt, settings.start_directory.clone()))
-        .unwrap_or_else(|_| (true, String::new()));
+        .map(|settings| {
+            (
+                settings.dispatch_prompt,
+                settings.type_below_prompt,
+                settings.start_directory.clone(),
+            )
+        })
+        .unwrap_or_else(|_| (true, true, String::new()));
     prompt::configure(&app, &mut cmd, &shell, dispatch_prompt);
+    /* Read once by the Dispatch prompt scripts, which then unset it. */
+    if dispatch_prompt && !type_below_prompt {
+        cmd.env("DISPATCH_PROMPT_INLINE", "1");
+    }
     if let Some(dir) = start_dir(&app, cwd, &start_directory) {
         cmd.cwd(dir);
     }

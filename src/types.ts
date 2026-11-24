@@ -21,6 +21,8 @@ export interface Settings {
   blur: number;
   /** zsh and bash show Dispatch's prompt: Node version, folder, git branch, changed files. New tabs only. */
   dispatchPrompt: boolean;
+  /** With the Dispatch prompt, commands are typed on the line below its chips instead of after them. New tabs only. */
+  typeBelowPrompt: boolean;
   /** Close and Command+Q hide Dispatch; its tabs keep running. */
   keepRunningInBackground: boolean;
   /** Global shortcut that shows or hides Dispatch, like "Cmd+Backquote". Empty is off. */
