@@ -51,11 +51,14 @@ fn integration_dir(app: &AppHandle) -> Option<PathBuf> {
 /// Adds the shell's arguments to `cmd`, with the Dispatch prompt when `enabled`
 /// and the shell is one it supports. Other shells start as plain login shells.
 pub fn configure(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str, enabled: bool) {
-    if enabled && apply(app, cmd, shell).is_some() {
-        return;
-    }
+    let applied = enabled && apply(app, cmd, shell).is_some();
     #[cfg(unix)]
-    cmd.arg("-l");
+    if !applied {
+        cmd.arg("-l");
+    }
+    /* Windows shells take no login flag. */
+    #[cfg(not(unix))]
+    let _ = applied;
 }
 
 fn apply(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str) -> Option<()> {
