@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.2.2",
+    date: "November 23, 2026",
+    notes: [
+      "On macOS, the Dispatch icon in the Dock and the Command-Tab switcher now follows the system's rounded-square shape exactly, so the thin lines along its top and bottom edges are gone.",
+    ],
+  },
+  {
     version: "0.2.1",
     date: "November 23, 2026",
     notes: [
