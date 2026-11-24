@@ -23,6 +23,9 @@ pub struct Settings {
     pub opacity: f32,
     /// Blur radius for what shows through the background; 0 turns it off.
     pub blur: u32,
+    /// Replace the zsh or bash prompt with chips for the Node version, folder,
+    /// git branch, and changed files. Applies to new tabs.
+    pub dispatch_prompt: bool,
     /// Closing the window or quitting with ⌘Q hides Dispatch and keeps its
     /// tabs running, so the toggle hotkey can bring them straight back.
     /// Quit from the menu bar icon still quits.
@@ -53,6 +56,7 @@ impl Default for Settings {
             scrollback: 10_000,
             opacity: 0.8,
             blur: 12,
+            dispatch_prompt: true,
             keep_running_in_background: true,
             toggle_hotkey: default_toggle_hotkey(),
         }

@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
   scrollback: 10_000,
   opacity: 0.8,
   blur: 12,
+  dispatchPrompt: true,
   keepRunningInBackground: true,
   toggleHotkey: isMac ? "Cmd+Backquote" : "Ctrl+Backquote",
 };

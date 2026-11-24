@@ -73,7 +73,7 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
       <div class="settings-header">
         <div>
           <div class="brand">Terminal</div>
-          <p class="muted tiny">Font, cursor, and how see-through the window is.</p>
+          <p class="muted tiny">Font, cursor, prompt, and how see-through the window is.</p>
         </div>
       </div>
 
@@ -196,6 +196,28 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
               :aria-checked="settings.cursorBlink"
               aria-label="Blinking cursor"
               @click="updateSettings({ cursorBlink: !settings.cursorBlink })"
+            >
+              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Dispatch prompt</h3>
+            <p class="muted tiny">
+              Replaces the zsh or bash prompt with the Node version, folder, git branch, and changed files. Applies to
+              new tabs.
+            </p>
+          </div>
+          <div class="settings-control">
+            <button
+              class="switch"
+              :class="{ on: settings.dispatchPrompt }"
+              type="button"
+              role="switch"
+              :aria-checked="settings.dispatchPrompt"
+              aria-label="Dispatch prompt"
+              @click="updateSettings({ dispatchPrompt: !settings.dispatchPrompt })"
             >
               <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
             </button>

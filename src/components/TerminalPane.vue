@@ -2,7 +2,7 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { Terminal, type ITheme } from "@xterm/xterm";
+import { Terminal, type IDecoration, type IMarker, type ITheme } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as api from "../api";
@@ -84,6 +84,88 @@ let sessionId = "";
 let startedAt = 0;
 let resizeObserver: ResizeObserver | null = null;
 let unregister: (() => void) | undefined;
+
+/*
+ * The Dispatch prompt (src-tauri/shell) prints each chip as plain text wrapped
+ * in OSC 6973 marks: "chip;<kind>" where it starts and "end" where it stops.
+ * The text stays ordinary terminal text; a decoration over those cells draws
+ * the chip's border and icon.
+ */
+const PROMPT_OSC = 6973;
+const CHIP_ICONS: Record<string, string> = {
+  node: '<path d="M12 2.5 20.5 7.4v9.2L12 21.5l-8.5-4.9V7.4Z"/><path class="glyph" d="M10.2 9.5v4.4c0 1-.6 1.6-1.5 1.6M16.2 10.3c-.3-.6-.9-.9-1.6-.9-.9 0-1.5.5-1.5 1.2 0 1.7 3.2 1 3.2 2.9 0 .8-.7 1.3-1.6 1.3-.8 0-1.4-.4-1.7-1"/>',
+  cwd: '<path d="M20 19a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2h-7.6a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 8.2 3.5H4a2 2 0 0 0-2 2V17a2 2 0 0 0 2 2Z"/>',
+  branch: '<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  changes: "",
+};
+
+interface PromptChip {
+  kind: string;
+  marker: IMarker;
+  x: number;
+  width: number;
+  text: string;
+  decoration: IDecoration;
+}
+
+let chipStart: { kind: string; marker: IMarker; x: number } | null = null;
+let chips: PromptChip[] = [];
+
+function lineText(line: number, start: number, end: number) {
+  return term?.buffer.normal.getLine(line)?.translateToString(false, start, end) ?? "";
+}
+
+/**
+ * Styles a chip's decoration each time it renders, and hides it once its
+ * cells no longer hold the prompt text (cleared, or written over).
+ */
+function renderChip(chip: PromptChip, el: HTMLElement) {
+  const intact = chip.marker.line >= 0 && lineText(chip.marker.line, chip.x, chip.x + chip.width) === chip.text;
+  el.hidden = !intact;
+  if (!intact) return;
+  el.style.setProperty("--cell", `${parseFloat(el.style.width) / chip.width}px`);
+  if (el.dataset.chip) return;
+  el.dataset.chip = chip.kind;
+  el.classList.add("prompt-chip", `chip-${chip.kind}`);
+  const icon = CHIP_ICONS[chip.kind];
+  if (icon) el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>`;
+}
+
+function addChip(kind: string, marker: IMarker, x: number, width: number) {
+  if (!term) return;
+  /* zsh and bash redraw the prompt in place (resizing, Ctrl+L); keep one chip per spot. */
+  chips = chips.filter((chip) => {
+    const stale = chip.marker.isDisposed || (chip.marker.line === marker.line && chip.x === x);
+    if (stale) chip.marker.dispose();
+    return !stale;
+  });
+  const decoration = term.registerDecoration({ marker, x, width });
+  if (!decoration) {
+    marker.dispose();
+    return;
+  }
+  const chip: PromptChip = { kind, marker, x, width, text: lineText(marker.line, x, x + width), decoration };
+  decoration.onRender((el) => renderChip(chip, el));
+  chips.push(chip);
+}
+
+function onPromptMark(data: string) {
+  const buffer = term?.buffer.active;
+  if (!term || !buffer || buffer.type !== "normal") return true;
+  const [mark, kind] = data.split(";");
+  if (mark === "chip" && kind in CHIP_ICONS) {
+    chipStart?.marker.dispose();
+    chipStart = { kind, marker: term.registerMarker(0), x: buffer.cursorX };
+  } else if (mark === "end" && chipStart) {
+    const start = chipStart;
+    chipStart = null;
+    const width = buffer.cursorX - start.x;
+    /* A chip that wrapped onto the next line is left as plain text. */
+    if (start.marker.line !== buffer.baseY + buffer.cursorY || width <= 0) start.marker.dispose();
+    else addChip(start.kind, start.marker, start.x, width);
+  }
+  return true;
+}
 
 function syncSize() {
   if (!term || !fit || !host.value?.clientWidth) return;
@@ -168,6 +250,8 @@ onMounted(async () => {
     macOptionClickForcesSelection: true,
     /* The pane paints the (possibly see-through) background; xterm stays clear on top of it. */
     allowTransparency: true,
+    /* Decorations draw the prompt's chips. */
+    allowProposedApi: true,
     /* ConPTY reflows lines itself; telling xterm avoids doubled wrapping on Windows. */
     ...(isWindows ? { windowsPty: { backend: "conpty" as const } } : {}),
   });
@@ -185,6 +269,7 @@ onMounted(async () => {
     if (sessionId) void api.writeTerminal(sessionId, data).catch(() => undefined);
   });
   term.onTitleChange((title) => setTerminalTitle(props.id, title));
+  term.parser.registerOscHandler(PROMPT_OSC, onPromptMark);
 
   unregister = registerTerminal(props.id, {
     focus: () => term?.focus(),
@@ -205,6 +290,8 @@ onUnmounted(() => {
   resizeObserver?.disconnect();
   if (sessionId) void api.closeTerminal(sessionId).catch(() => undefined);
   sessionId = "";
+  chips = [];
+  chipStart = null;
   term?.dispose();
   term = null;
   fit = null;

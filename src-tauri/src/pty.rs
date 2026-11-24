@@ -9,6 +9,9 @@ use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
+use crate::prompt;
+use crate::settings::SettingsState;
+
 struct TerminalSession {
     writer: Mutex<Box<dyn Write + Send>>,
     master: Box<dyn MasterPty + Send>,
@@ -133,10 +136,13 @@ pub fn open_terminal(
         .filter(|value| !value.is_empty())
         .unwrap_or_else(default_shell);
     let mut cmd = CommandBuilder::new(&shell);
-    #[cfg(unix)]
-    {
-        cmd.arg("-l");
-    }
+    let dispatch_prompt = app
+        .state::<SettingsState>()
+        .0
+        .lock()
+        .map(|settings| settings.dispatch_prompt)
+        .unwrap_or(true);
+    prompt::configure(&app, &mut cmd, &shell, dispatch_prompt);
     if let Some(dir) = start_dir(&app, cwd) {
         cmd.cwd(dir);
     }

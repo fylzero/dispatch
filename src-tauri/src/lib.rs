@@ -2,6 +2,7 @@ mod blur;
 mod corners;
 mod hotkey;
 mod menu;
+mod prompt;
 mod pty;
 mod settings;
 mod tray;

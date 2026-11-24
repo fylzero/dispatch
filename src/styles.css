@@ -1063,6 +1063,48 @@ button.tab-new:hover:not(:disabled) {
   background-color: transparent !important;
 }
 
+/* Chips the Dispatch prompt draws over its own text: Node version, folder, git branch, changes. */
+.terminal-host .prompt-chip {
+  pointer-events: none;
+}
+
+.terminal-host .prompt-chip::before {
+  content: "";
+  position: absolute;
+  inset: 1px 0;
+  border: 1px solid rgb(var(--tint) / 0.14);
+  border-radius: 5px;
+  background: rgb(var(--tint) / 0.04);
+}
+
+/* The prompt leaves two blank cells after the first one for the icon. */
+.terminal-host .prompt-chip svg {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--cell, 8px) * 2);
+  width: min(calc(var(--cell, 8px) * 1.7), 14px);
+  height: min(calc(var(--cell, 8px) * 1.7), 14px);
+  transform: translate(-50%, -50%);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.terminal-host .chip-node svg,
+.terminal-host .chip-branch svg {
+  color: var(--good);
+}
+
+.terminal-host .chip-node .glyph {
+  stroke-width: 1.5;
+}
+
+.terminal-host .chip-cwd svg {
+  color: var(--text-faint);
+}
+
 kbd {
   display: inline-flex;
   align-items: center;
