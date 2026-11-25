@@ -129,6 +129,7 @@ pub fn run() {
             pty::write_terminal,
             pty::resize_terminal,
             pty::close_terminal,
+            pty::terminal_cwd,
             hotkey::set_toggle_hotkey,
             hotkey::pause_toggle_hotkey,
             hide_window,

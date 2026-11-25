@@ -109,7 +109,8 @@ else
 fi
 # PS0 prints as each command starts; bash before 4.4 has no PS0, so its blocks have no run time.
 if [ "${BASH_VERSINFO[0]}" -gt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -ge 4 ]; }; then
-  PS0="${PS0}"$'\e]6973;exec\a'
+  # A blank line after the command: Dispatch draws the bottom of its card through it.
+  PS0="${PS0}"$'\e]6973;exec\a\n'
   # Readline can't show a newline inside the line it edits (it prints ^J), so
   # Shift+Enter continues the command on the next line with a trailing backslash.
   bind '"\e[13;2u": "\C-e \\\C-m"'

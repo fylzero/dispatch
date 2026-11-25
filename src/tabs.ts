@@ -29,6 +29,12 @@ export const MAX_STACKED = 12;
 export const MIN_PANE_WIDTH = 80;
 export const MIN_PANE_HEIGHT = 48;
 
+/**
+ * True while a split divider is being dragged. Terminals keep their rows and
+ * columns until it is let go, so the shells don't redraw on every pixel.
+ */
+export const dividerDragging = ref(false);
+
 export interface AppTab {
   id: string;
   title: string;
@@ -47,6 +53,8 @@ export interface TerminalHandle {
   focus(): void;
   clear(): void;
   selectAll(): void;
+  /** The folder the pane's shell is in now, when it can be told. */
+  cwd(): Promise<string | null>;
 }
 
 const terminals = ref<TerminalTab[]>([]);
@@ -57,6 +65,15 @@ export const settingsSection = ref<SettingsSection>("general");
 export const activeId = ref("");
 
 const handles = new Map<string, TerminalHandle>();
+/** Where a pane made by a split should start: the folder of the pane it split from. */
+const startDirs = new Map<string, Promise<string | null>>();
+
+/** The folder a new pane should start in, once; undefined for the default (a new tab). */
+export function takeStartDir(paneId: string) {
+  const dir = startDirs.get(paneId);
+  startDirs.delete(paneId);
+  return dir;
+}
 let nextTab = 1;
 let nextId = 1;
 const newId = (prefix: string) => `${prefix}-${nextId++}`;
@@ -154,6 +171,9 @@ export function splitActive(direction: "vertical" | "horizontal") {
     showToast("There isn't room to split this pane. Make the window or pane bigger first.", "error");
     return;
   }
+  /* The new pane opens in the folder the split pane's shell is in. */
+  const from = handles.get(tab.activePane);
+  if (from) startDirs.set(pane, from.cwd().catch(() => null));
   tab.root = trial;
   tab.activePane = pane;
 }

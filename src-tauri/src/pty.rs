@@ -274,3 +274,80 @@ pub fn close_terminal(state: State<TerminalState>, id: String) -> Result<(), Str
     lock_sessions(&state)?.remove(&id);
     Ok(())
 }
+
+/// The folder a process is in, read from the system.
+#[cfg(target_os = "macos")]
+fn process_cwd(pid: u32) -> Option<PathBuf> {
+    use std::ffi::CStr;
+    use std::mem::{size_of, MaybeUninit};
+    let mut info = MaybeUninit::<libc::proc_vnodepathinfo>::zeroed();
+    let size = size_of::<libc::proc_vnodepathinfo>() as libc::c_int;
+    // SAFETY: proc_pidinfo writes at most `size` bytes into `info` and
+    // returns how many it wrote; the struct is only read when it filled it.
+    let written = unsafe {
+        libc::proc_pidinfo(
+            pid as libc::c_int,
+            libc::PROC_PIDVNODEPATHINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    if written != size {
+        return None;
+    }
+    // SAFETY: filled in above. vip_path is a NUL-terminated path split into
+    // rows of 32 only for old compilers; it is one contiguous buffer.
+    let path = unsafe {
+        let info = info.assume_init();
+        let bytes = std::slice::from_raw_parts(
+            info.pvi_cdir.vip_path.as_ptr().cast::<u8>(),
+            size_of_val(&info.pvi_cdir.vip_path),
+        );
+        CStr::from_bytes_until_nul(bytes).ok()?.to_string_lossy().into_owned()
+    };
+    (!path.is_empty()).then(|| PathBuf::from(path))
+}
+
+#[cfg(target_os = "linux")]
+fn process_cwd(pid: u32) -> Option<PathBuf> {
+    std::fs::read_link(format!("/proc/{pid}/cwd")).ok()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn process_cwd(_pid: u32) -> Option<PathBuf> {
+    None
+}
+
+/// The folder a terminal's shell is in now, so a split can open there too.
+/// None when it can't be told (the shell has gone, or on Windows).
+#[tauri::command]
+pub fn terminal_cwd(state: State<TerminalState>, id: String) -> Result<Option<String>, String> {
+    let pid = {
+        let sessions = lock_sessions(&state)?;
+        let Some(session) = sessions.get(&id) else {
+            return Ok(None);
+        };
+        let child = session
+            .child
+            .lock()
+            .map_err(|_| "Could not lock the terminal.".to_string())?;
+        child.process_id()
+    };
+    Ok(pid
+        .and_then(process_cwd)
+        .filter(|dir| dir.is_dir())
+        .map(|dir| dir.to_string_lossy().into_owned()))
+}
+
+#[cfg(all(test, any(target_os = "macos", target_os = "linux")))]
+mod tests {
+    use super::process_cwd;
+
+    #[test]
+    fn reads_own_working_directory() {
+        let expected = std::env::current_dir().unwrap().canonicalize().unwrap();
+        let found = process_cwd(std::process::id()).unwrap().canonicalize().unwrap();
+        assert_eq!(found, expected);
+    }
+}

@@ -4,12 +4,14 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal, type IDecoration, type IMarker, type ITheme } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { Menu } from "@tauri-apps/api/menu";
+import { homeDir } from "@tauri-apps/api/path";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as api from "../api";
 import { fontFaceName, resolveFontStack } from "../fonts";
 import { isMac, isWindows } from "../platform";
 import { settings } from "../settings";
-import { closePane, registerTerminal, setTerminalTitle } from "../tabs";
+import { closePane, dividerDragging, registerTerminal, setTerminalTitle, takeStartDir } from "../tabs";
 import { resolvedTheme } from "../theme";
 import type { ResolvedTheme } from "../types";
 
@@ -131,6 +133,71 @@ function renderChip(chip: PromptChip, el: HTMLElement) {
   if (icon) el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>`;
 }
 
+/** The chip at a point in the pane, in the screen or in the snapshot stuck to its top. */
+function chipAt(clientX: number, clientY: number, target: EventTarget | null) {
+  const screen = term?.element?.querySelector<HTMLElement>(".xterm-screen");
+  const buffer = term?.buffer.active;
+  if (!term || !screen || !buffer || buffer.type !== "normal") return null;
+  const box = screen.getBoundingClientRect();
+  const cellWidth = box.width / term.cols;
+  const cellHeight = box.height / term.rows;
+  const col = Math.floor((clientX - box.left) / cellWidth);
+  let line: number;
+  const stuck = sticky && !sticky.el.hidden && sticky.block && (target as Element | null)?.closest?.(".snapshot-sticky");
+  if (stuck && sticky?.block) {
+    line = sticky.block.marker.line + Math.floor((clientY - sticky.el.getBoundingClientRect().top) / cellHeight);
+  } else {
+    line = buffer.viewportY + Math.floor((clientY - box.top) / cellHeight);
+  }
+  return (
+    chips.find(
+      (chip) =>
+        !chip.marker.isDisposed &&
+        chip.marker.line === line &&
+        col >= chip.x &&
+        col < chip.x + chip.width &&
+        lineText(line, chip.x, chip.x + chip.width) === chip.text,
+    ) ?? null
+  );
+}
+
+/** What Copy puts on the clipboard for a chip: the folder as a full path, or the branch name. */
+async function chipValue(chip: PromptChip) {
+  const text = chip.text.trim();
+  if (chip.kind !== "cwd" || !(text === "~" || text.startsWith("~/"))) return text;
+  const home = (await homeDir()).replace(/\/+$/, "");
+  return home + text.slice(1);
+}
+
+function copyableChipAt(event: MouseEvent) {
+  const chip = chipAt(event.clientX, event.clientY, event.target);
+  return chip && (chip.kind === "cwd" || chip.kind === "branch") ? chip : null;
+}
+
+/* In WebKit xterm selects the word under a right click on mousedown; leave a chip's text alone. */
+function onRightMouseDown(event: MouseEvent) {
+  if (event.button === 2 && copyableChipAt(event)) event.stopPropagation();
+}
+
+/* Right-clicking the folder or branch chip offers to copy it. */
+async function onContextMenu(event: MouseEvent) {
+  const chip = copyableChipAt(event);
+  if (!chip) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const value = await chipValue(chip);
+  const menu = await Menu.new({
+    items: [
+      {
+        id: "copy",
+        text: chip.kind === "cwd" ? "Copy Path" : "Copy Branch Name",
+        action: () => void navigator.clipboard.writeText(value).catch(() => undefined),
+      },
+    ],
+  });
+  await menu.popup();
+}
+
 function addChip(kind: string, marker: IMarker, x: number, width: number) {
   if (!term) return;
   /* zsh and bash redraw the prompt in place (resizing, Ctrl+L); keep one chip per spot. */
@@ -153,14 +220,35 @@ function addChip(kind: string, marker: IMarker, x: number, width: number) {
  * Blocks: the prompt also marks where it starts ("prompt"), where a command
  * starts ("exec"), and where it ends ("done;<exit code>"). Each prompt line
  * gets a border above it, so every command and its output sit in a block of
- * their own, and the run time shows at the right end of the line once the
- * command ends.
+ * their own.
+ *
+ * Once a command runs, its prompt (the chips and the command) becomes a
+ * snapshot: a muted card above the command's output, with a clock at its
+ * right that counts up while the command runs and stops when it ends. When
+ * the card scrolls past the top of the pane, a copy of it sticks there until
+ * the next block's prompt pushes it off.
  */
+interface Snapshot {
+  /** The line just below the prompt: blank when the shell leaves a line before the output (see "spaced"). */
+  end: IMarker;
+  decoration: IDecoration;
+  startedAt: number;
+  /** 0 while the command runs. */
+  endedAt: number;
+  code: string;
+  /** The clocks showing this command's time: on the card, and on the copy stuck to the top. */
+  clocks: Set<HTMLElement>;
+  /** A copy of the prompt's rows and chips, for the top of the pane. */
+  copy?: HTMLElement;
+  copyRows: number;
+  /** The pane was resized (or the font changed) since the copy was drawn. */
+  stale: boolean;
+}
+
 interface Block {
   marker: IMarker;
   decoration: IDecoration;
-  startedAt: number;
-  label?: IDecoration;
+  snapshot?: Snapshot;
 }
 
 let blocks: Block[] = [];
@@ -334,8 +422,14 @@ function selectInput() {
   return true;
 }
 
+function disposeSnapshot(block: Block) {
+  block.snapshot?.decoration.dispose();
+  block.snapshot?.end.dispose();
+  block.snapshot = undefined;
+}
+
 function disposeBlock(block: Block) {
-  block.label?.dispose();
+  disposeSnapshot(block);
   block.decoration.dispose();
   block.marker.dispose();
 }
@@ -351,6 +445,14 @@ function renderBlock(block: Block, el: HTMLElement) {
   el.style.setProperty("--row", el.style.height);
   el.style.setProperty("--cols", String(term.cols));
   el.classList.add("block-start");
+  /*
+   * A snapshot's card has a border of its own, and so does the line between
+   * blocks after a command that printed nothing: the card's bottom border is
+   * already there, one line up.
+   */
+  const previous = blocks[blocks.indexOf(block) - 1]?.snapshot;
+  const noOutput = !!previous && previous.end.line + 2 >= block.marker.line && lineIsBlank(previous.end.line);
+  el.classList.toggle("ran", !!block.snapshot || noOutput);
   /* The border goes in the blank line the prompt prints first; without one (an older prompt) it stays off the text above. */
   el.classList.toggle("gap", lineIsBlank(block.marker.line - 1));
 }
@@ -369,47 +471,278 @@ function addBlock() {
     marker.dispose();
     return;
   }
-  const block: Block = { marker, decoration, startedAt: 0 };
+  const block: Block = { marker, decoration };
   decoration.onRender((el) => renderBlock(block, el));
   marker.onDispose(() => {
-    block.label?.dispose();
+    disposeSnapshot(block);
     blocks = blocks.filter((other) => other !== block);
+    schedulePin();
   });
   blocks.push(block);
 }
 
-function formatDuration(ms: number) {
-  if (ms < 1000) return `${Math.max(0, Math.round(ms))}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)}s`;
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = Math.floor((ms % 60_000) / 1000);
-  if (minutes < 60) return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+/** Run time to the millisecond: 0.049s, 12.300s, 2m 05.120s, 1h 02m 05.120s. */
+function formatElapsed(ms: number) {
+  const total = Math.floor(Math.max(0, ms)) / 1000;
+  if (total < 60) return `${total.toFixed(3)}s`;
+  const minutes = Math.floor(total / 60);
+  const seconds = (total - minutes * 60).toFixed(3).padStart(6, "0");
+  if (minutes < 60) return `${minutes}m ${seconds}s`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m ${seconds}s`;
 }
 
-/** Shows how long the block's command ran, and its exit code when it failed, at the right end of its prompt line. */
-function finishBlock(block: Block, code: string) {
-  if (!term || !block.startedAt) return;
-  const failed = code !== "" && code !== "0";
-  const text = `${failed ? `exit ${code} · ` : ""}${formatDuration(performance.now() - block.startedAt)}`;
-  block.startedAt = 0;
-  /* One blank cell between the label and whatever is to its left. */
-  const width = text.length + 1;
-  const label = term.registerDecoration({ marker: block.marker, anchor: "right", x: 0, width });
-  if (!label) return;
-  block.label?.dispose();
-  block.label = label;
-  label.onRender((el) => {
-    const line = block.marker.line;
-    const cols = term?.cols ?? 0;
-    /* Only over empty cells, so it never covers a long prompt or command. */
-    el.hidden = line < 0 || lineText(line, cols - width, cols).trim() !== "";
-    if (el.hidden || el.dataset.label) return;
-    el.dataset.label = text;
-    el.textContent = text;
-    el.classList.add("block-time");
-    el.classList.toggle("failed", failed);
-  });
+/**
+ * Whether the shell left a blank line between the command and its output, as
+ * the Dispatch prompt does. The card's bottom border runs through its middle;
+ * without one (an older prompt) the border sits on the prompt's last row.
+ */
+function isSpaced(block: Block) {
+  return !!block.snapshot && lineIsBlank(block.snapshot.end.line);
+}
+
+/** How many rows the prompt took: from the chips down to the last line of the command. */
+function snapshotRows(block: Block) {
+  return block.snapshot ? Math.max(1, block.snapshot.end.line - block.marker.line) : 0;
+}
+
+function makeClock(snapshot: Snapshot) {
+  const clock = document.createElement("span");
+  clock.className = "snapshot-time";
+  snapshot.clocks.add(clock);
+  return clock;
+}
+
+/** Shows the block's run time, and its exit code when it failed, on each of its clocks. */
+function paintClocks(block: Block) {
+  const snapshot = block.snapshot;
+  if (!term || !snapshot) return;
+  const failed = snapshot.endedAt > 0 && snapshot.code !== "" && snapshot.code !== "0";
+  const elapsed = formatElapsed((snapshot.endedAt || performance.now()) - snapshot.startedAt);
+  const text = `${failed ? `exit ${snapshot.code} · ` : ""}${elapsed}`;
+  const line = block.marker.line;
+  const cols = term.cols;
+  /* Only over empty cells (and one more to its left), so it never covers a long prompt. */
+  const fits = line >= 0 && lineText(line, Math.max(0, cols - text.length - 1), cols).trim() === "";
+  for (const clock of snapshot.clocks) {
+    if (clock.textContent !== text) clock.textContent = text;
+    clock.hidden = !fits;
+    clock.classList.toggle("failed", failed);
+  }
+}
+
+/* While a command runs its clocks count up every frame. */
+let clockFrame = 0;
+
+function tickClocks() {
+  clockFrame = 0;
+  let running = false;
+  for (const block of blocks) {
+    if (!block.snapshot || block.snapshot.endedAt) continue;
+    running = true;
+    paintClocks(block);
+  }
+  if (running) clockFrame = requestAnimationFrame(tickClocks);
+}
+
+function renderSnapshot(block: Block, el: HTMLElement) {
+  const snapshot = block.snapshot;
+  el.hidden = !snapshot || lineIsBlank(block.marker.line);
+  if (el.hidden || !term || !snapshot) return;
+  /* xterm rounds a decoration's size to whole pixels; the card spans the screen's real width. */
+  const screen = term.element?.querySelector<HTMLElement>(".xterm-screen");
+  el.style.setProperty("--cell", screen ? `${screen.clientWidth / term.cols}px` : el.style.width);
+  el.style.setProperty("--row", screen ? `${screen.clientHeight / term.rows}px` : el.style.height);
+  el.style.setProperty("--cols", String(term.cols));
+  el.style.setProperty("--rows", String(snapshotRows(block)));
+  el.classList.toggle("spaced", isSpaced(block));
+  if (el.classList.contains("snapshot-card")) return;
+  el.classList.add("snapshot-card");
+  el.append(makeClock(snapshot));
+  paintClocks(block);
+}
+
+/** The block's command started: its prompt, from the chips to the cursor's line, becomes a snapshot. */
+function startSnapshot(block: Block) {
+  if (!term || block.snapshot) return;
+  const end = term.registerMarker(0);
+  const decoration = term.registerDecoration({ marker: block.marker, x: 0, width: 1, height: 1 });
+  if (!decoration) {
+    end.dispose();
+    return;
+  }
+  block.snapshot = {
+    end,
+    decoration,
+    startedAt: performance.now(),
+    endedAt: 0,
+    code: "",
+    clocks: new Set(),
+    copyRows: 0,
+    stale: true,
+  };
+  decoration.onRender((el) => renderSnapshot(block, el));
+  if (!clockFrame) clockFrame = requestAnimationFrame(tickClocks);
+}
+
+/** The block's command ended: its clocks stop, showing the exit code if it failed. */
+function finishSnapshot(block: Block, code: string) {
+  const snapshot = block.snapshot;
+  if (!snapshot || snapshot.endedAt) return;
+  snapshot.endedAt = performance.now();
+  snapshot.code = code;
+  paintClocks(block);
+}
+
+/** A chip drawn into a copy of the prompt, as renderChip draws it over the terminal. */
+function chipElement(chip: PromptChip, top: number, cellWidth: number, cellHeight: number) {
+  const el = document.createElement("div");
+  el.className = `prompt-chip chip-${chip.kind}`;
+  el.style.cssText = `top:${top}px;left:${chip.x * cellWidth}px;width:${chip.width * cellWidth}px;height:${cellHeight}px`;
+  el.style.setProperty("--cell", `${cellWidth}px`);
+  const icon = CHIP_ICONS[chip.kind];
+  if (icon) el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>`;
+  return el;
+}
+
+/**
+ * Draws a copy of a snapshot's prompt (its rows' text, in their colours, and
+ * its chips) from the buffer, for the top of the pane once the prompt itself
+ * has scrolled past it. Each run of same-styled text is placed at its cell.
+ */
+function buildCopy(block: Block, cellWidth: number, cellHeight: number) {
+  const snapshot = block.snapshot;
+  const buffer = term?.buffer.normal;
+  if (!term || !snapshot || !buffer) return;
+  const start = block.marker.line;
+  const rows = snapshotRows(block);
+  const copy = document.createElement("div");
+  /* The class picks up xterm's own styles for text and its palette colours. */
+  copy.className = "xterm-rows snapshot-rows";
+  for (let row = 0; row < rows; row++) {
+    const line = buffer.getLine(start + row);
+    if (!line) continue;
+    let run: HTMLSpanElement | null = null;
+    let style = "";
+    for (let x = 0; x < term.cols; x++) {
+      const cell = line.getCell(x);
+      if (!cell || cell.getWidth() === 0) continue;
+      const chars = cell.getChars() || " ";
+      const color = cell.isFgPalette() ? `p${cell.getFgColor()}` : cell.isFgRGB() ? `r${cell.getFgColor()}` : "";
+      const next = `${color}|${cell.isBold()}|${cell.isDim()}|${cell.isItalic()}`;
+      if (!run || next !== style) {
+        style = next;
+        if (chars === " " && !color) {
+          run = null;
+          continue;
+        }
+        run = document.createElement("span");
+        run.style.cssText = `top:${row * cellHeight}px;left:${x * cellWidth}px`;
+        if (cell.isFgPalette()) run.classList.add(`xterm-fg-${cell.getFgColor()}`);
+        else if (cell.isFgRGB()) run.style.color = `#${cell.getFgColor().toString(16).padStart(6, "0")}`;
+        if (cell.isBold()) run.classList.add("xterm-bold");
+        if (cell.isDim()) run.classList.add("xterm-dim");
+        if (cell.isItalic()) run.classList.add("xterm-italic");
+        copy.append(run);
+      }
+      run.textContent += chars;
+    }
+  }
+  for (const chip of chips) {
+    const line = chip.marker.line;
+    if (chip.marker.isDisposed || line < start || line >= start + rows) continue;
+    if (lineText(line, chip.x, chip.x + chip.width) !== chip.text) continue;
+    copy.append(chipElement(chip, (line - start) * cellHeight, cellWidth, cellHeight));
+  }
+  snapshot.copy = copy;
+  snapshot.copyRows = rows;
+  snapshot.stale = false;
+}
+
+function markSnapshotsStale() {
+  for (const block of blocks) if (block.snapshot) block.snapshot.stale = true;
+}
+
+/* The copy of a snapshot stuck to the top of the pane, and the block it belongs to. */
+let sticky: { el: HTMLElement; block?: Block; copy?: HTMLElement; clock?: HTMLElement } | null = null;
+
+function hideSticky() {
+  if (!sticky || sticky.el.hidden) return;
+  sticky.el.hidden = true;
+  if (sticky.clock) sticky.block?.snapshot?.clocks.delete(sticky.clock);
+  sticky.block = undefined;
+  sticky.copy = undefined;
+  sticky.clock = undefined;
+}
+
+/**
+ * Sticks the snapshot whose prompt has scrolled past the top of the pane to
+ * the top, while its output still shows. The next block's prompt pushes it
+ * up and off as it reaches the top. `full` is false while the screen sits
+ * lower to keep the prompt at the bottom (nothing has scrolled past the top).
+ */
+function layoutSticky(screen: HTMLElement, cellHeight: number, full: boolean, offset: number) {
+  const buffer = term?.buffer.active;
+  if (!term || !buffer || buffer.type !== "normal" || !full) return hideSticky();
+  /*
+   * The card reaches half a line above its first row (its top border runs
+   * through the blank line there). Where the screen starts below the pane's
+   * top (its padding, and the leftover strip), the copy sits low enough that
+   * the whole card shows, top border at the pane's top edge, the same size
+   * as in the pane. A card whose top has gone past that edge is the one stuck.
+   */
+  const paneTop = (host.value ? parseFloat(getComputedStyle(host.value).paddingTop) || 0 : 0) + offset;
+  const rest = cellHeight / 2 - paneTop;
+  let index = -1;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const line = blocks[i].marker.line;
+    if (line >= 0 && (line - buffer.viewportY) * cellHeight < rest) {
+      index = i;
+      break;
+    }
+  }
+  const block = blocks[index];
+  const snapshot = block?.snapshot;
+  if (!block || !snapshot || lineIsBlank(block.marker.line)) return hideSticky();
+  const cellWidth = screen.clientWidth / term.cols;
+  if (snapshot.stale || !snapshot.copy) buildCopy(block, cellWidth, cellHeight);
+  if (!snapshot.copy) return hideSticky();
+  const height = snapshot.copyRows * cellHeight;
+  const next = blocks[index + 1];
+  /* The copy's bottom border meets the next prompt's top border, in the blank line above it, and moves up with it. */
+  const nextBorder = next ? (next.marker.line - buffer.viewportY - 0.5) * cellHeight : Infinity;
+  const spaced = isSpaced(block);
+  const below = spaced ? cellHeight / 2 : 0;
+  const y = Math.min(rest, nextBorder - height - below);
+  if (y + height + below <= -paneTop) return hideSticky();
+
+  if (!sticky || !sticky.el.isConnected) {
+    const el = document.createElement("div");
+    el.className = "snapshot-sticky";
+    el.hidden = true;
+    screen.append(el);
+    sticky = { el };
+  }
+  const el = sticky.el;
+  if (sticky.block !== block || sticky.copy !== snapshot.copy) {
+    if (sticky.clock) sticky.block?.snapshot?.clocks.delete(sticky.clock);
+    const card = document.createElement("div");
+    card.className = "snapshot-card";
+    const clock = makeClock(snapshot);
+    card.append(clock);
+    el.replaceChildren(snapshot.copy, card);
+    sticky.block = block;
+    sticky.copy = snapshot.copy;
+    sticky.clock = clock;
+    paintClocks(block);
+  }
+  el.style.setProperty("--cell", `${cellWidth}px`);
+  el.style.setProperty("--row", `${cellHeight}px`);
+  el.style.setProperty("--cols", String(term.cols));
+  el.style.setProperty("--rows", String(snapshot.copyRows));
+  el.classList.toggle("spaced", spaced);
+  el.lastElementChild?.classList.toggle("spaced", spaced);
+  el.style.transform = y ? `translateY(${y}px)` : "";
+  el.hidden = false;
 }
 
 /** ED 2 and 3 (clear) wipe the screen; blocks on it are gone, even though their lines may fill up again. */
@@ -438,9 +771,9 @@ function onPromptMark(data: string) {
   } else if (mark === "exec") {
     promptBindsKeys = false;
     forgetInput();
-    if (current) current.startedAt = performance.now();
+    if (current) startSnapshot(current);
   } else if (mark === "done") {
-    if (current) finishBlock(current, kind ?? "");
+    if (current) finishSnapshot(current, kind ?? "");
   } else if (mark === "chip" && kind in CHIP_ICONS) {
     chipStart?.marker.dispose();
     chipStart = { kind, marker: term.registerMarker(0), x: buffer.cursorX };
@@ -468,8 +801,11 @@ function pinToBottom() {
   pinFrame = 0;
   const el = term?.element;
   const buffer = term?.buffer.active;
-  if (!term || !el || !buffer) return;
+  const screen = el?.querySelector<HTMLElement>(".xterm-screen");
+  if (!term || !el || !buffer || !screen) return;
+  const cellHeight = screen.clientHeight / term.rows;
   let offset = 0;
+  let spare = 0;
   if (buffer.type === "normal" && buffer.viewportY === buffer.baseY) {
     let last = buffer.cursorY;
     for (let y = term.rows - 1; y > last; y--) {
@@ -478,16 +814,16 @@ function pinToBottom() {
         break;
       }
     }
-    const screen = el.querySelector<HTMLElement>(".xterm-screen");
-    if (screen) {
-      const cellHeight = screen.clientHeight / term.rows;
-      const leftover = Math.max(0, el.clientHeight - screen.clientHeight);
-      offset = Math.floor((term.rows - 1 - last) * cellHeight + leftover);
-    }
+    spare = term.rows - 1 - last;
+    /* Mid-drag the screen can be taller than the pane; keep its bottom in view. */
+    const leftover = el.clientHeight - screen.clientHeight;
+    const room = dividerDragging.value ? leftover : Math.max(0, leftover);
+    offset = Math.floor(spare * cellHeight + room);
   }
   el.style.transform = offset ? `translateY(${offset}px)` : "";
   /* Where overflow: clip is missing, the pane can still scroll to show xterm's input; keep it put. */
   if (host.value && host.value.scrollTop) host.value.scrollTop = 0;
+  layoutSticky(screen, cellHeight, spare === 0, offset);
 }
 
 function schedulePin() {
@@ -502,6 +838,18 @@ function onPaneMouseDown(event: MouseEvent) {
   if (!term?.element || term.element.contains(event.target as Node)) return;
   event.preventDefault();
   term.focus();
+}
+
+/*
+ * While a divider is dragged the terminal keeps its size and only the pane
+ * around it changes: the screen is re-pinned to the pane's bottom in the same
+ * frame, so the text glides with the divider instead of shuddering as rows
+ * come and go and the shell redraws. It fits once the divider is let go.
+ */
+function onHostResize() {
+  if (!dividerDragging.value) return syncSize();
+  cancelAnimationFrame(pinFrame);
+  pinToBottom();
 }
 
 function syncSize() {
@@ -535,17 +883,21 @@ function onExit() {
 
 async function start() {
   if (!term) return;
-  startedAt = Date.now();
   try {
+    /* A pane made by a split starts in the folder of the pane it split from. */
+    const cwd = (await takeStartDir(props.id)) ?? undefined;
+    if (!term) return;
+    startedAt = Date.now();
     sessionId = await api.openTerminal({
       cols: term.cols,
       rows: term.rows,
       shell: settings.value.shell,
+      cwd,
       onData: (bytes) => term?.write(bytes),
       onExit,
     });
   } catch (err) {
-    term.writeln(`\x1b[31m${api.errorMessage(err)}\x1b[0m`);
+    term?.writeln(`\x1b[31m${api.errorMessage(err)}\x1b[0m`);
   }
 }
 
@@ -682,7 +1034,10 @@ onMounted(async () => {
   term.parser.registerCsiHandler({ final: "J" }, onEraseDisplay);
   term.onRender(schedulePin);
   term.onScroll(schedulePin);
-  term.onResize(schedulePin);
+  term.onResize(() => {
+    markSnapshotsStale();
+    schedulePin();
+  });
 
   unregister = registerTerminal(props.id, {
     focus: () => term?.focus(),
@@ -696,9 +1051,13 @@ onMounted(async () => {
       schedulePin();
     },
     selectAll,
+    cwd: () => (sessionId ? api.terminalCwd(sessionId) : Promise.resolve(null)),
   });
 
-  resizeObserver = new ResizeObserver(() => syncSize());
+  /* Capture, so xterm doesn't select the word under a chip first. */
+  node.addEventListener("mousedown", onRightMouseDown, true);
+  node.addEventListener("contextmenu", onContextMenu, true);
+  resizeObserver = new ResizeObserver(onHostResize);
   resizeObserver.observe(node);
   await nextTick();
   syncSize();
@@ -709,11 +1068,16 @@ onMounted(async () => {
 onUnmounted(() => {
   unregister?.();
   resizeObserver?.disconnect();
+  host.value?.removeEventListener("mousedown", onRightMouseDown, true);
+  host.value?.removeEventListener("contextmenu", onContextMenu, true);
   if (sessionId) void api.closeTerminal(sessionId).catch(() => undefined);
   sessionId = "";
   chips = [];
   chipStart = null;
   blocks = [];
+  sticky = null;
+  cancelAnimationFrame(clockFrame);
+  clockFrame = 0;
   promptBindsKeys = false;
   forgetInput();
   cancelAnimationFrame(pinFrame);
@@ -741,6 +1105,7 @@ watch(
     term.options.fontFamily = resolveFontStack(family);
     term.options.fontSize = size;
     term.options.lineHeight = lineHeight;
+    markSnapshotsStale();
     syncSize();
   },
 );
@@ -754,6 +1119,11 @@ watch(
     term.options.scrollback = scrollback;
   },
 );
+
+/* Let go of a divider: fit the new size once. */
+watch(dividerDragging, (dragging) => {
+  if (!dragging) syncSize();
+});
 
 watch(resolvedTheme, (theme) => {
   if (term) term.options.theme = themeFor(theme);

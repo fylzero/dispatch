@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import TerminalPane from "./TerminalPane.vue";
 import { type PlacedDivider, layout } from "../splits";
-import { MIN_PANE_HEIGHT, MIN_PANE_WIDTH, type TerminalTab, focusPane, setTabSize } from "../tabs";
+import { MIN_PANE_HEIGHT, MIN_PANE_WIDTH, type TerminalTab, dividerDragging, focusPane, setTabSize } from "../tabs";
 
 const props = defineProps<{ tab: TerminalTab; visible: boolean }>();
 
@@ -52,6 +52,7 @@ function startResize(event: PointerEvent, divider: PlacedDivider) {
   const pair = a.weight + b.weight;
   const startA = a.weight;
   resizing.value = divider.axis;
+  dividerDragging.value = true;
 
   const onMove = (move: PointerEvent) => {
     const delta = (((divider.axis === "x" ? move.clientX : move.clientY) - start) / size) * sum;
@@ -61,6 +62,7 @@ function startResize(event: PointerEvent, divider: PlacedDivider) {
   };
   const onUp = () => {
     resizing.value = null;
+    dividerDragging.value = false;
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onUp);

@@ -1026,7 +1026,7 @@ button.tab-new:hover:not(:disabled) {
   /* FitAddon reads this box's width and height as the room inside the padding. */
   box-sizing: content-box;
   /* Extra room at the bottom so the line being typed doesn't sit on the pane's edge. */
-  padding: 0.5rem 0.25rem 0.875rem 0.75rem;
+  padding: 0.5rem 0.25rem 1.25rem 0.75rem;
   /*
    * The screen moves down to keep the prompt at the bottom; what moves past the
    * edge is blank. clip, not hidden: a hidden box still scrolls to show xterm's
@@ -1067,6 +1067,37 @@ button.tab-new:hover:not(:disabled) {
 .terminal-host .xterm-scrollable-element > .scrollbar.vertical > .slider:hover,
 .terminal-host .xterm-scrollable-element > .scrollbar.vertical > .slider.active {
   background: rgb(var(--tint) / 0.5) !important;
+}
+
+/*
+ * The cursor fills its whole row, so it nearly touches the prompt's chips on
+ * the row above. Draw it a few pixels shorter at the top for a gap.
+ */
+.terminal-host {
+  --cursor-gap: 3px;
+}
+
+/* The bar: hide the top of the left strip it is drawn in, not the character under it. */
+.terminal-host .xterm-rows .xterm-cursor.xterm-cursor-bar {
+  mask:
+    linear-gradient(transparent var(--cursor-gap), #000 var(--cursor-gap)) left / 3px 100% no-repeat,
+    linear-gradient(#000, #000) right / calc(100% - 3px) 100% no-repeat;
+}
+
+/* The outline (unfocused): draw the same box, starting lower. */
+.terminal-host .xterm-rows .xterm-cursor.xterm-cursor-outline {
+  position: relative;
+  outline-style: none !important;
+}
+
+.terminal-host .xterm-rows .xterm-cursor.xterm-cursor-outline::after {
+  content: "";
+  position: absolute;
+  inset: var(--cursor-gap) 0 0;
+  outline: 1px solid;
+  outline-color: inherit;
+  outline-offset: -1px;
+  pointer-events: none;
 }
 
 /* No inset shadow along the top edge once scrolled. */
@@ -1138,18 +1169,107 @@ button.tab-new:hover:not(:disabled) {
   top: calc(var(--row, 18px) * -0.5);
 }
 
-/* How long the block's command ran, at the right end of its prompt line. xterm sets no offset for x 0. */
-.terminal-host .block-time {
+/* A snapshot's card has its own border, so no line above it. */
+.terminal-host .block-start.ran::before {
+  display: none;
+}
+
+/*
+ * A command that ran: its prompt, muted, in a card above its output. The
+ * element covers the prompt's rows; its ::before draws the card around them.
+ */
+.terminal-host .snapshot-card {
   pointer-events: none;
+  width: calc(var(--cell, 8px) * var(--cols, 80)) !important;
+  height: calc(var(--row, 18px) * var(--rows, 1)) !important;
+}
+
+/*
+ * The card spans the pane edge to edge with a border above and below only.
+ * The top one runs through the blank line above the prompt, like the line
+ * between blocks, and the bottom one through the blank line the prompt leaves
+ * after the command, so the output has room below it.
+ */
+.terminal-host .snapshot-card::before,
+.terminal-host .snapshot-sticky::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--row, 18px) * -0.5);
+  bottom: 0;
+  left: -0.75rem;
+  /* Past the scrollbar's strip to the pane's edge, where the pane clips it. */
+  right: -100vw;
+}
+
+.terminal-host .snapshot-card.spaced::before,
+.terminal-host .snapshot-sticky.spaced::before {
+  bottom: calc(var(--row, 18px) * -0.5);
+}
+
+.terminal-host .snapshot-card::before {
+  border-top: 1px solid rgb(var(--tint) / 0.13);
+  border-bottom: 1px solid rgb(var(--tint) / 0.13);
+  /* A wash of the background over the whole card mutes the prompt's text. */
+  background: rgb(var(--terminal-rgb) / 0.6);
+}
+
+/* How long the command has run, counting up until it ends, at the right of the card's first line. */
+.terminal-host .snapshot-time {
+  position: absolute;
+  top: 0;
   right: 0;
-  text-align: right;
+  height: var(--row, 18px);
+  line-height: var(--row, 18px);
   color: var(--text-faint);
   font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.terminal-host .block-time.failed {
+.terminal-host .snapshot-time.failed {
   color: var(--bad-text);
+}
+
+/* A copy of the card stuck to the top of the pane once the prompt scrolls past it. */
+.terminal-host .snapshot-sticky {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 9;
+  pointer-events: none;
+  width: calc(var(--cell, 8px) * var(--cols, 80));
+  height: calc(var(--row, 18px) * var(--rows, 1));
+}
+
+.terminal-host .snapshot-sticky[hidden] {
+  display: none;
+}
+
+/* Hides the output scrolling under it. */
+.terminal-host .snapshot-sticky::before {
+  background: rgb(var(--terminal-rgb) / var(--terminal-opacity, 1));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.terminal-host .snapshot-rows {
+  position: relative;
+}
+
+.terminal-host .snapshot-rows > span,
+.terminal-host .snapshot-rows > .prompt-chip {
+  position: absolute;
+}
+
+.terminal-host .snapshot-rows > span {
+  height: var(--row, 18px) !important;
+  line-height: var(--row, 18px);
+}
+
+.terminal-host .snapshot-sticky > .snapshot-card {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 kbd {

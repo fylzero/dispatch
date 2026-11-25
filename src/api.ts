@@ -42,4 +42,6 @@ export function openTerminal(options: OpenTerminalOptions) {
 export const writeTerminal = (id: string, data: string) => invoke<void>("write_terminal", { id, data });
 export const resizeTerminal = (id: string, cols: number, rows: number) =>
   invoke<void>("resize_terminal", { id, cols, rows });
+/** The folder a terminal's shell is in now; null when it can't be told. */
+export const terminalCwd = (id: string) => invoke<string | null>("terminal_cwd", { id });
 export const closeTerminal = (id: string) => invoke<void>("close_terminal", { id });

@@ -2,7 +2,7 @@
 # printed as plain text. Each chip is wrapped in OSC 6973 marks so Dispatch can
 # draw a border and icon around it; the marks take no space on screen.
 # More marks split the screen into one block per command: "prompt" where the
-# prompt starts, "exec" when a command starts, "done;<exit code>" when it ends.
+# prompt starts, "exec" when a command starts (followed by a blank line), "done;<exit code>" when it ends.
 # "prompt;newline" also tells Dispatch that the prompt binds its keys:
 # Shift+Enter, sent as CSI 13;2u, adds a line instead of running the command,
 # CSI 127;9u clears the whole command (Select All, then Backspace), and
@@ -53,7 +53,8 @@ bindkey -M viins $'\e[1;3C' __dispatch_word_right
 
 __dispatch_preexec() {
   __dispatch_ran=1
-  print -n $'\e]6973;exec\a'
+  # A blank line after the command: Dispatch draws the bottom of its card through it.
+  print -n $'\e]6973;exec\a\n'
 }
 
 __dispatch_prompt() {

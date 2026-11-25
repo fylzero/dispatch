@@ -6,6 +6,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.2.5",
+    date: "November 24, 2026",
+    notes: [
+      "Each command you run leaves a snapshot of its prompt above its output: a muted card with a clock that counts how long the command has run, to the millisecond, and shows the exit code if it fails.",
+      "When a command's snapshot scrolls past the top of the pane, it stays pinned there until the next command's snapshot pushes it off.",
+      "Dragging the line between split panes is smooth now: the text glides with it instead of shuddering, and each terminal resizes once when you let go.",
+      "A little more room around the line you type on: a small gap between the prompt's chips and the cursor, and more space below it at the bottom of the pane.",
+      "Right-click the folder or branch chip in a prompt to copy the full path or the branch name.",
+      "Splitting a pane (Command-D or Command-Shift-D) opens the new pane in the folder you're in. New tabs still open in your start directory.",
+    ],
+  },
+  {
     version: "0.2.4",
     date: "November 23, 2026",
     notes: [
