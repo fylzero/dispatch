@@ -9,6 +9,9 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: "1.0.0",
     date: "November 24, 2026",
     notes: [
+      "Double-click a tab to rename it in place. Press Enter or click away to keep the name, or Escape to cancel. Clear the name to go back to the shell's title.",
+      "Right-click a tab to rename it, give it a color, or close it. A colored tab gets a soft tint and a colored line along its bottom edge.",
+      "Right-click a terminal to name the pane, give it a color, split it right or down, or close it. A named pane shows its name in a slim strip along its top (double-click the strip to rename it), and a tab that hasn't been renamed uses the name of its focused pane. A pane's color is a faint tint over its background that follows your window opacity.",
       "The command line works like a text field. Click anywhere in the command to move the cursor there, or below it to jump to the end. Drag across the command to select part of it (the cursor hides while you do), then press Backspace or Delete to remove it, or just type to replace it.",
       "Cut, Copy, and Paste work on a selection in the command, as in any text editor: Cut copies it and removes it, and Paste replaces it. Cut is new in the Edit menu, and on Windows and Linux it's Ctrl+Shift+X.",
       "Pasted text looks like the rest of the command instead of standing out highlighted, in both zsh and bash.",

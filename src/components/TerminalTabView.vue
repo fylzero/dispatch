@@ -1,8 +1,28 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import TerminalPane from "./TerminalPane.vue";
+import { colorRgb } from "../colors";
+import { openContextMenu } from "../contextMenu";
+import { isMac } from "../platform";
 import { type PlacedDivider, layout } from "../splits";
-import { MIN_PANE_HEIGHT, MIN_PANE_WIDTH, type TerminalTab, dividerDragging, dropTargetPane, focusPane, setTabSize } from "../tabs";
+import {
+  MIN_PANE_HEIGHT,
+  MIN_PANE_WIDTH,
+  type TerminalTab,
+  closePane,
+  closeTab,
+  dividerDragging,
+  dropTargetPane,
+  focusPane,
+  focusTerminalPane,
+  paneColor,
+  paneName,
+  renamePane,
+  renamingPane,
+  setPaneColor,
+  setTabSize,
+  splitPaneById,
+} from "../tabs";
 
 const props = defineProps<{ tab: TerminalTab; visible: boolean }>();
 
@@ -74,6 +94,72 @@ function startResize(event: PointerEvent, divider: PlacedDivider) {
   stopDrag = onUp;
 }
 
+const SPLIT_RIGHT_HINT = isMac ? "⌘D" : "Ctrl+Shift+D";
+const SPLIT_DOWN_HINT = isMac ? "⌘⇧D" : "Ctrl+Shift+E";
+const CLOSE_HINT = isMac ? "⌘W" : "Ctrl+Shift+W";
+
+function onPaneContextMenu(event: MouseEvent, paneId: string) {
+  focusPane(props.tab.id, paneId);
+  openContextMenu(event, [
+    { kind: "item", label: paneName(paneId) ? "Rename Pane…" : "Name Pane…", action: () => startRename(paneId) },
+    { kind: "colors", label: "Pane Color", value: paneColor(paneId), pick: (color) => setPaneColor(paneId, color) },
+    { kind: "separator" },
+    { kind: "item", label: "Split Right", hint: SPLIT_RIGHT_HINT, action: () => splitPaneById(paneId, "vertical") },
+    { kind: "item", label: "Split Down", hint: SPLIT_DOWN_HINT, action: () => splitPaneById(paneId, "horizontal") },
+    { kind: "separator" },
+    {
+      kind: "item",
+      label: split.value ? "Close Pane" : "Close Tab",
+      hint: CLOSE_HINT,
+      danger: true,
+      action: () => (split.value ? closePane(paneId) : closeTab(props.tab.id)),
+    },
+  ]);
+}
+
+/* Naming a pane in place, in the strip at its top: Enter or clicking away keeps it, Escape drops it. */
+const renameDraft = ref("");
+const renameInput = ref<HTMLInputElement | null>(null);
+const setRenameInput = (el: unknown) => {
+  renameInput.value = el instanceof HTMLInputElement ? el : null;
+};
+
+function startRename(paneId: string) {
+  renameDraft.value = paneName(paneId);
+  renamingPane.value = paneId;
+}
+
+watch(renamingPane, async (id) => {
+  if (!id || !panes.value.some((pane) => pane.id === id)) return;
+  await nextTick();
+  renameInput.value?.focus();
+  renameInput.value?.select();
+});
+
+function finishRename(save: boolean) {
+  const id = renamingPane.value;
+  if (!id) return;
+  if (save) renamePane(id, renameDraft.value);
+  renamingPane.value = null;
+  renameDraft.value = "";
+  focusTerminalPane(id);
+}
+
+function onRenameKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    finishRename(true);
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    finishRename(false);
+  }
+}
+
+function paneTint(paneId: string) {
+  const rgb = colorRgb(paneColor(paneId));
+  return rgb ? { "--pane-rgb": rgb } : undefined;
+}
+
 let observer: ResizeObserver | undefined;
 
 onMounted(() => {
@@ -97,12 +183,34 @@ onBeforeUnmount(() => {
       v-for="pane in panes"
       :key="pane.id"
       class="split-pane"
-      :class="{ focused: tab.activePane === pane.id, 'drop-target': dropTargetPane === pane.id }"
+      :class="{
+        focused: tab.activePane === pane.id,
+        'drop-target': dropTargetPane === pane.id,
+        tinted: paneColor(pane.id),
+      }"
       :data-pane-id="pane.id"
-      :style="paneStyle(pane.rect)"
+      :style="[paneStyle(pane.rect), paneTint(pane.id)]"
       @pointerdown="focusPane(tab.id, pane.id)"
       @focusin="focusPane(tab.id, pane.id)"
+      @contextmenu="onPaneContextMenu($event, pane.id)"
     >
+      <div v-if="paneName(pane.id) || renamingPane === pane.id" class="pane-header" @dblclick="startRename(pane.id)">
+        <input
+          v-if="renamingPane === pane.id"
+          :ref="setRenameInput"
+          v-model="renameDraft"
+          class="pane-rename"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="Pane name"
+          aria-label="Pane name"
+          @keydown.stop="onRenameKeydown"
+          @blur="finishRename(true)"
+          @pointerdown.stop
+        />
+        <span v-else class="pane-name" :title="paneName(pane.id)">{{ paneName(pane.id) }}</span>
+      </div>
       <TerminalPane :id="pane.id" :active="visible && tab.activePane === pane.id" />
     </div>
     <div

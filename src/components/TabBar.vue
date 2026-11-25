@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useUpdater } from "../composables/useUpdater";
+import { colorRgb } from "../colors";
+import { openContextMenu } from "../contextMenu";
 import { isMac } from "../platform";
 import {
+  type AppTab,
   CHANGELOG_TAB_ID,
   SETTINGS_TAB_ID,
   activate,
@@ -16,6 +19,10 @@ import {
   newTerminal,
   openChangelog,
   openSettings,
+  renameTab,
+  renamingTab,
+  setTabColor,
+  tabName,
   tabs,
 } from "../tabs";
 
@@ -48,7 +55,7 @@ const draggingId = ref<string | null>(null);
 let pressed: { id: string; x: number } | null = null;
 
 function startReorder(event: PointerEvent, id: string) {
-  if (event.button !== 0 || !isReorderable(id) || (event.target as Element).closest("button")) return;
+  if (event.button !== 0 || !isReorderable(id) || (event.target as Element).closest("button, input")) return;
   event.preventDefault();
   pressed = { id, x: event.clientX };
   window.addEventListener("pointermove", onReorderMove);
@@ -95,6 +102,70 @@ function onAuxClick(event: MouseEvent, id: string) {
 }
 
 /*
+ * Renaming in place: double-click a terminal tab (or Rename… in its menu) and
+ * its title becomes a field. Enter or clicking away keeps the name, Escape
+ * drops it, and an empty name goes back to the shell's title.
+ */
+const renameDraft = ref("");
+/** The tab's width when renaming began, held so swapping the title for a field can't resize it. */
+const renameWidth = ref(0);
+const renameInput = ref<HTMLInputElement | null>(null);
+/* A function ref: a plain ref inside v-for would collect an array. */
+const setRenameInput = (el: unknown) => {
+  renameInput.value = el instanceof HTMLInputElement ? el : null;
+};
+
+function startRename(id: string) {
+  if (!isReorderable(id)) return;
+  const element = tabList.value?.querySelector<HTMLElement>(`[data-reorder-id="${id}"]`);
+  renameWidth.value = element?.getBoundingClientRect().width ?? 0;
+  /* Not activate(), which would hand the keyboard back to the terminal over the field. */
+  activeId.value = id;
+  renameDraft.value = tabName(id) || (tabs.value.find((tab) => tab.id === id)?.title ?? "");
+  renamingTab.value = id;
+}
+
+watch(renamingTab, async (id) => {
+  if (!id) return;
+  if (!renameDraft.value) renameDraft.value = tabName(id) || (tabs.value.find((tab) => tab.id === id)?.title ?? "");
+  await nextTick();
+  renameInput.value?.focus();
+  renameInput.value?.select();
+});
+
+function finishRename(save: boolean) {
+  const id = renamingTab.value;
+  if (!id) return;
+  if (save) renameTab(id, renameDraft.value);
+  renamingTab.value = null;
+  renameDraft.value = "";
+  activate(id);
+}
+
+function onRenameKeydown(event: KeyboardEvent) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    finishRename(true);
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    finishRename(false);
+  }
+}
+
+function onTabContextMenu(event: MouseEvent, tab: AppTab) {
+  if (tab.kind !== "terminal") {
+    openContextMenu(event, [{ kind: "item", label: "Close Tab", action: () => closeTab(tab.id) }]);
+    return;
+  }
+  openContextMenu(event, [
+    { kind: "item", label: "Rename Tab…", action: () => startRename(tab.id) },
+    { kind: "colors", label: "Tab Color", value: tab.color, pick: (color) => setTabColor(tab.id, color) },
+    { kind: "separator" },
+    { kind: "item", label: "Close Tab", danger: true, action: () => closeTab(tab.id) },
+  ]);
+}
+
+/*
  * On macOS the window's own close/minimize/zoom buttons sit over the left of
  * the tab bar (an overlay title bar), so the bar leaves room for them, except
  * in full screen, where macOS hides them.
@@ -128,7 +199,13 @@ onBeforeUnmount(() => {
         v-for="tab in tabs"
         :key="tab.id"
         class="tab"
-        :class="{ active: activeId === tab.id, dragging: draggingId === tab.id }"
+        :class="{ active: activeId === tab.id, dragging: draggingId === tab.id, colored: tab.color, renaming: renamingTab === tab.id }"
+        :style="[
+          tab.color ? { '--tab-rgb': colorRgb(tab.color) } : {},
+          renamingTab === tab.id && renameWidth
+            ? { width: `${renameWidth}px`, minWidth: `${renameWidth}px`, maxWidth: `${renameWidth}px` }
+            : {},
+        ]"
         :data-reorder-id="isReorderable(tab.id) ? tab.id : undefined"
         :title="tab.title"
         role="tab"
@@ -136,6 +213,8 @@ onBeforeUnmount(() => {
         @click="activate(tab.id)"
         @auxclick="onAuxClick($event, tab.id)"
         @pointerdown="startReorder($event, tab.id)"
+        @dblclick="startRename(tab.id)"
+        @contextmenu="onTabContextMenu($event, tab)"
       >
         <svg v-if="tab.kind === 'settings'" class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -152,7 +231,20 @@ onBeforeUnmount(() => {
           <path d="m5.5 8 4 4-4 4" />
           <path d="M12 16.5h6.5" />
         </svg>
-        <span class="tab-title">{{ tab.title }}</span>
+        <input
+          v-if="renamingTab === tab.id"
+          :ref="setRenameInput"
+          v-model="renameDraft"
+          class="tab-rename"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          :aria-label="`Rename ${tab.title}`"
+          @keydown.stop="onRenameKeydown"
+          @blur="finishRename(true)"
+          @dblclick.stop
+        />
+        <span v-else class="tab-title">{{ tab.title }}</span>
         <button class="tab-close" type="button" :aria-label="`Close ${tab.title}`" @click.stop="closeTab(tab.id)">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
             <path

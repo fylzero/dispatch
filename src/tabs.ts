@@ -40,6 +40,8 @@ export interface AppTab {
   id: string;
   title: string;
   kind: "terminal" | "settings" | "changelog";
+  /** A color id from LABEL_COLORS, set from the tab's right-click menu. */
+  color?: string;
 }
 
 /** A terminal tab: a tree of split panes and the one that has focus. */
@@ -47,6 +49,10 @@ export interface TerminalTab {
   id: string;
   root: LayoutNode;
   activePane: string;
+  /** A name given by renaming the tab; without one it follows the focused pane. */
+  name?: string;
+  /** A color id from LABEL_COLORS. */
+  color?: string;
 }
 
 /** What the menu can ask of a terminal pane. */
@@ -62,6 +68,13 @@ export interface TerminalHandle {
 
 const terminals = ref<TerminalTab[]>([]);
 const paneTitles = ref<Record<string, string>>({});
+/** Names given to panes from their right-click menu; shown on the pane and used as its title. */
+const paneNames = ref<Record<string, string>>({});
+/** Color ids given to panes from their right-click menu. */
+const paneColors = ref<Record<string, string>>({});
+/** The tab or pane whose name is being edited in place. */
+export const renamingTab = ref<string | null>(null);
+export const renamingPane = ref<string | null>(null);
 const settingsTabOpen = ref(false);
 const changelogTabOpen = ref(false);
 export const settingsSection = ref<SettingsSection>("general");
@@ -82,11 +95,16 @@ let nextId = 1;
 const newId = (prefix: string) => `${prefix}-${nextId++}`;
 
 function titleOf(paneId: string) {
-  return paneTitles.value[paneId] || "Terminal";
+  return paneNames.value[paneId] || paneTitles.value[paneId] || "Terminal";
 }
 
 export const tabs = computed<AppTab[]>(() => [
-  ...terminals.value.map((tab) => ({ id: tab.id, title: titleOf(tab.activePane), kind: "terminal" as const })),
+  ...terminals.value.map((tab) => ({
+    id: tab.id,
+    title: tab.name || titleOf(tab.activePane),
+    kind: "terminal" as const,
+    color: tab.color,
+  })),
   ...(settingsTabOpen.value ? [{ id: SETTINGS_TAB_ID, title: "Settings", kind: "settings" as const }] : []),
   ...(changelogTabOpen.value ? [{ id: CHANGELOG_TAB_ID, title: "Change Log", kind: "changelog" as const }] : []),
 ]);
@@ -170,6 +188,65 @@ export function newTerminal() {
   activeId.value = tab.id;
 }
 
+function terminalTab(id: string) {
+  return terminals.value.find((tab) => tab.id === id);
+}
+
+function tabOfPane(paneId: string) {
+  return terminals.value.find((tab) => layout(tab.root).panes.some((pane) => pane.id === paneId));
+}
+
+/** Names a tab; a blank name goes back to following the focused pane's title. */
+export function renameTab(id: string, name: string) {
+  const tab = terminalTab(id);
+  if (tab) tab.name = name.trim() || undefined;
+}
+
+export function setTabColor(id: string, color: string | undefined) {
+  const tab = terminalTab(id);
+  if (tab) tab.color = color;
+}
+
+/** The name the tab was given, if any (not the shell's title). */
+export function tabName(id: string) {
+  return terminalTab(id)?.name ?? "";
+}
+
+export function paneName(paneId: string) {
+  return paneNames.value[paneId] ?? "";
+}
+
+export function paneColor(paneId: string) {
+  return paneColors.value[paneId];
+}
+
+/** Names a pane; a blank name removes it. */
+export function renamePane(paneId: string, name: string) {
+  const { [paneId]: _old, ...rest } = paneNames.value;
+  const trimmed = name.trim();
+  paneNames.value = trimmed ? { ...rest, [paneId]: trimmed } : rest;
+}
+
+export function setPaneColor(paneId: string, color: string | undefined) {
+  const { [paneId]: _old, ...rest } = paneColors.value;
+  paneColors.value = color ? { ...rest, [paneId]: color } : rest;
+}
+
+/** Puts the pane's shell back in focus, e.g. after a menu or a rename closes. */
+export function focusTerminalPane(paneId?: string) {
+  const id = paneId ?? activeTab()?.activePane;
+  if (id) void nextTick(() => handles.get(id)?.focus());
+}
+
+/** Forgets the titles, names and colors of panes that have closed. */
+function forgetPanes(ids: string[]) {
+  const drop = (record: Record<string, string>) =>
+    Object.fromEntries(Object.entries(record).filter(([id]) => !ids.includes(id)));
+  paneTitles.value = drop(paneTitles.value);
+  paneNames.value = drop(paneNames.value);
+  paneColors.value = drop(paneColors.value);
+}
+
 export function setTerminalTitle(paneId: string, title: string) {
   paneTitles.value = { ...paneTitles.value, [paneId]: title };
 }
@@ -196,23 +273,32 @@ function fits(tabId: string, root: LayoutNode) {
  */
 export function splitActive(direction: "vertical" | "horizontal") {
   const tab = activeTab();
-  if (!tab) return;
+  if (tab) splitPaneIn(tab, tab.activePane, direction);
+}
+
+/** Splits a given pane, as from its right-click menu. */
+export function splitPaneById(paneId: string, direction: "vertical" | "horizontal") {
+  const tab = tabOfPane(paneId);
+  if (tab) splitPaneIn(tab, paneId, direction);
+}
+
+function splitPaneIn(tab: TerminalTab, target: string, direction: "vertical" | "horizontal") {
   const axis: Axis = direction === "vertical" ? "x" : "y";
   const limit = axis === "x" ? MAX_SIDE_BY_SIDE : MAX_STACKED;
-  if (siblingsAfterSplit(tab.root, tab.activePane, axis) > limit) {
+  if (siblingsAfterSplit(tab.root, target, axis) > limit) {
     showToast(`Up to ${limit} panes can sit ${axis === "x" ? "side by side" : "stacked"} in one split.`, "error");
     return;
   }
   const pane = newId("pane");
   /* Try it on a copy first, so a split that would leave a sliver changes nothing. */
   const copy: LayoutNode = JSON.parse(JSON.stringify(toRaw(tab.root)));
-  const trial = splitPane(copy, tab.activePane, axis, { kind: "pane", id: pane, weight: 1 }, newId("split"));
+  const trial = splitPane(copy, target, axis, { kind: "pane", id: pane, weight: 1 }, newId("split"));
   if (!fits(tab.id, trial)) {
     showToast("There isn't room to split this pane. Make the window or pane bigger first.", "error");
     return;
   }
   /* The new pane opens in the folder the split pane's shell is in. */
-  const from = handles.get(tab.activePane);
+  const from = handles.get(target);
   if (from) startDirs.set(pane, from.cwd().catch(() => null));
   tab.root = trial;
   tab.activePane = pane;
@@ -220,10 +306,9 @@ export function splitActive(direction: "vertical" | "horizontal") {
 
 /** Closes one pane; the last pane in a tab closes the tab. */
 export function closePane(paneId: string) {
-  const tab = terminals.value.find((item) => layout(item.root).panes.some((pane) => pane.id === paneId));
+  const tab = tabOfPane(paneId);
   if (!tab) return;
-  const { [paneId]: _closed, ...rest } = paneTitles.value;
-  paneTitles.value = rest;
+  if (countPanes(tab.root) > 1) forgetPanes([paneId]);
   const { root, focus } = removePane(tab.root, paneId);
   if (!root) {
     closeTab(tab.id);
@@ -297,7 +382,12 @@ export function closeTab(id: string) {
   if (index === -1) return;
   if (id === SETTINGS_TAB_ID) settingsTabOpen.value = false;
   else if (id === CHANGELOG_TAB_ID) changelogTabOpen.value = false;
-  else terminals.value = terminals.value.filter((tab) => tab.id !== id);
+  else {
+    const closing = terminalTab(id);
+    if (closing) forgetPanes(layout(closing.root).panes.map((pane) => pane.id));
+    terminals.value = terminals.value.filter((tab) => tab.id !== id);
+  }
+  if (renamingTab.value === id) renamingTab.value = null;
 
   const remaining = tabs.value;
   if (!remaining.length) {

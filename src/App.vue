@@ -5,6 +5,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import TabBar from "./components/TabBar.vue";
 import TerminalTabView from "./components/TerminalTabView.vue";
+import ContextMenu from "./components/ContextMenu.vue";
 import Modal from "./components/Modal.vue";
 import Toast from "./components/Toast.vue";
 import { useUpdater } from "./composables/useUpdater";
@@ -95,7 +96,12 @@ onMounted(async () => {
     await listen("previous-tab", () => cycleTab(-1)),
     await listen("open-settings", () => openSettings()),
     await listen("clear-terminal", () => activeTerminal()?.clear()),
-    await listen("select-all", () => activeTerminal()?.selectAll()),
+    await listen("select-all", () => {
+      /* ⌘A is a menu shortcut, so a text field (renaming a tab or pane) has to be selected by hand. */
+      const field = document.activeElement;
+      if (field instanceof HTMLInputElement && field.type === "text") field.select();
+      else activeTerminal()?.selectAll();
+    }),
     await listen("zoom-in", () => zoom(1)),
     await listen("zoom-out", () => zoom(-1)),
     await listen("zoom-reset", () => zoom("reset")),
@@ -151,6 +157,7 @@ onUnmounted(() => {
         <button class="primary" type="button" :disabled="updateBusy" @click="installUpdate">Install and restart</button>
       </template>
     </Modal>
+    <ContextMenu />
     <Transition name="toast" :duration="{ enter: 520, leave: 280 }">
       <Toast
         v-if="toastMessage"

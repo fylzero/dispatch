@@ -37,6 +37,9 @@
   --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   /* Space-separated RGB so the window opacity can be applied as rgb(var(--terminal-rgb) / alpha). */
   --terminal-rgb: 8 9 12;
+  /* How strongly a pane's or tab's color washes over its background. */
+  --pane-tint: 0.1;
+  --tab-tint: 0.14;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.45;
@@ -81,6 +84,8 @@
   --shadow-strong: rgb(15 23 42 / 0.16);
   --backdrop: rgb(15 23 42 / 0.25);
   --terminal-rgb: 255 255 255;
+  --pane-tint: 0.08;
+  --tab-tint: 0.12;
 }
 
 * {
@@ -1577,4 +1582,227 @@ button.switch:hover:not(:disabled) {
 .window-controls-space {
   flex: 0 0 84px;
   border-right: 1px solid var(--border);
+}
+
+/* Tab and pane colors and names, set from their right-click menus. */
+
+.tab.colored {
+  /* A wash over the tab's own background (hover, active), with a line along its foot. */
+  background-image: linear-gradient(rgb(var(--tab-rgb) / var(--tab-tint)), rgb(var(--tab-rgb) / var(--tab-tint)));
+  box-shadow: inset 0 -2px 0 rgb(var(--tab-rgb) / 0.75);
+}
+
+.tab.colored .tab-icon {
+  color: rgb(var(--tab-rgb));
+}
+
+.tab.colored.active {
+  box-shadow: inset 0 -2px 0 rgb(var(--tab-rgb));
+}
+
+/*
+ * The rename fields take exactly the title's box: no padding, border or margin
+ * (the ring is a shadow), so the tab or pane strip keeps its size while editing.
+ * input.* outranks the global input[type="text"] rule.
+ */
+input.tab-rename,
+input.pane-rename,
+input.tab-rename:focus,
+input.pane-rename:focus {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 1.45em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--bg-input), 0 0 0 4px var(--accent);
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.45;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Keep the × in place (just hidden) so the tab doesn't shift. */
+.tab.renaming .tab-close {
+  visibility: hidden;
+}
+
+/* A pane's color is a faint wash over its background, scaled by the window opacity so see-through stays see-through. */
+.split-pane.tinted {
+  --pane-wash: linear-gradient(
+    rgb(var(--pane-rgb) / calc(var(--pane-tint) * var(--terminal-opacity, 1))),
+    rgb(var(--pane-rgb) / calc(var(--pane-tint) * var(--terminal-opacity, 1)))
+  );
+}
+
+.split-pane.tinted > .terminal-pane,
+.split-pane.tinted > .pane-header,
+.split-pane.tinted .terminal-host .snapshot-sticky::before {
+  background-image: var(--pane-wash);
+}
+
+/* A named pane shows its name in a slim strip along its top. */
+.pane-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 24px;
+  padding: 0 0.6rem;
+  border-bottom: 1px solid rgb(var(--tint) / 0.08);
+  background-color: rgb(var(--terminal-rgb) / var(--terminal-opacity, 1));
+  color: var(--text-soft);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.split-pane.tinted > .pane-header {
+  color: rgb(var(--pane-rgb));
+  border-bottom-color: rgb(var(--pane-rgb) / 0.22);
+}
+
+.split-root.split .split-pane:not(.focused) > .pane-header {
+  opacity: calc(1 - var(--pane-dim, 0.4) * 0.6);
+}
+
+.pane-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+input.pane-rename {
+  font-size: 11.5px;
+}
+
+/* Right-click menus for tabs and panes. */
+
+.context-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 13rem;
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  box-shadow: 0 12px 32px var(--shadow-strong);
+  font-size: 13px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.context-item,
+button.context-item:hover:not(:disabled),
+button.context-item:active {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: 100%;
+  padding: 0.3rem 0.55rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+button.context-item:hover:not(:disabled),
+button.context-item:focus-visible,
+button.context-item:focus {
+  outline: none;
+  background: var(--bg-hover);
+}
+
+button.context-item.danger:hover:not(:disabled),
+button.context-item.danger:focus {
+  color: var(--bad-text);
+}
+
+.context-item:disabled {
+  color: var(--text-faint);
+}
+
+.context-hint {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.context-separator {
+  height: 1px;
+  margin: 0.3rem 0.2rem;
+  background: var(--border);
+}
+
+.context-colors {
+  padding: 0.3rem 0.55rem 0.35rem;
+}
+
+.context-colors-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.context-swatches {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.context-swatch,
+button.context-swatch:hover:not(:disabled),
+button.context-swatch:active {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid rgb(var(--swatch-rgb, var(--tint)) / 0.9);
+  border-radius: 50%;
+  background: rgb(var(--swatch-rgb) / 0.75);
+  box-shadow: none;
+  cursor: default;
+  transition: transform 0.08s ease;
+}
+
+button.context-swatch:hover:not(:disabled) {
+  transform: scale(1.15);
+}
+
+button.context-swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.context-swatch.selected,
+button.context-swatch.selected:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 2px var(--bg-raised),
+    0 0 0 3.5px rgb(var(--swatch-rgb, var(--tint)) / 0.9);
+}
+
+/* "No color": an empty ring with a slash through it. */
+.context-swatch.none,
+button.context-swatch.none:hover:not(:disabled) {
+  --swatch-rgb: var(--tint);
+  border-color: rgb(var(--tint) / 0.35);
+  background: linear-gradient(
+    135deg,
+    transparent calc(50% - 0.75px),
+    rgb(var(--tint) / 0.45) calc(50% - 0.75px),
+    rgb(var(--tint) / 0.45) calc(50% + 0.75px),
+    transparent calc(50% + 0.75px)
+  );
 }
