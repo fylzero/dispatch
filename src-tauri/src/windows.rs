@@ -136,7 +136,11 @@ pub fn open(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .first()
         .cloned()
         .unwrap_or_default();
-    let n = app.state::<WindowsState>().next.fetch_add(1, Ordering::Relaxed) + 1;
+    let n = app
+        .state::<WindowsState>()
+        .next
+        .fetch_add(1, Ordering::Relaxed)
+        + 1;
     config.label = format!("{PREFIX}{n}");
     config.center = false;
     if let Some(from) = from.filter(|w| w.is_visible().unwrap_or(false)) {

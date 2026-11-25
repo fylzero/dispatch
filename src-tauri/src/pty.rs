@@ -326,7 +326,10 @@ fn process_cwd(pid: u32) -> Option<PathBuf> {
             info.pvi_cdir.vip_path.as_ptr().cast::<u8>(),
             size_of_val(&info.pvi_cdir.vip_path),
         );
-        CStr::from_bytes_until_nul(bytes).ok()?.to_string_lossy().into_owned()
+        CStr::from_bytes_until_nul(bytes)
+            .ok()?
+            .to_string_lossy()
+            .into_owned()
     };
     (!path.is_empty()).then(|| PathBuf::from(path))
 }
@@ -369,7 +372,10 @@ mod tests {
     #[test]
     fn reads_own_working_directory() {
         let expected = std::env::current_dir().unwrap().canonicalize().unwrap();
-        let found = process_cwd(std::process::id()).unwrap().canonicalize().unwrap();
+        let found = process_cwd(std::process::id())
+            .unwrap()
+            .canonicalize()
+            .unwrap();
         assert_eq!(found, expected);
     }
 }
