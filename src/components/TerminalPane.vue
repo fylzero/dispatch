@@ -891,6 +891,13 @@ function pinToBottom() {
   const buffer = term?.buffer.active;
   const screen = el?.querySelector<HTMLElement>(".xterm-screen");
   if (!term || !el || !buffer || !screen) return;
+  /*
+   * A hidden tab (display: none) measures zero; pinning then would drop the
+   * offset, and a pane that isn't redrawn when the tab comes back (the
+   * unfocused one in a split) would show its prompt at the top. Keep the last
+   * pin; the pane is re-pinned when it is shown again.
+   */
+  if (!el.clientHeight || !screen.clientHeight) return;
   const cellHeight = screen.clientHeight / term.rows;
   let offset = 0;
   let spare = 0;
@@ -935,7 +942,12 @@ function onPaneMouseDown(event: MouseEvent) {
  * come and go and the shell redraws. It fits once the divider is let go.
  */
 function onHostResize() {
-  if (!dividerDragging.value) return syncSize();
+  if (!dividerDragging.value) {
+    syncSize();
+    /* Shown again at the same size: fit changes nothing, so re-pin here. */
+    schedulePin();
+    return;
+  }
   cancelAnimationFrame(pinFrame);
   pinToBottom();
 }
