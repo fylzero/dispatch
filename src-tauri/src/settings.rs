@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 const SETTINGS_FILE: &str = "settings.json";
 
@@ -110,6 +110,7 @@ pub fn get_settings(state: State<SettingsState>) -> Result<Settings, String> {
 #[tauri::command]
 pub fn save_settings(
     app: AppHandle,
+    window: WebviewWindow,
     state: State<SettingsState>,
     settings: Settings,
 ) -> Result<Settings, String> {
@@ -122,6 +123,13 @@ pub fn save_settings(
         .lock()
         .map_err(|_| "Could not update settings.".to_string())?;
     *current = settings.clone();
+    drop(current);
+    /* The other windows follow along. */
+    for label in app.webview_windows().into_keys() {
+        if label != window.label() {
+            let _ = app.emit_to(label.as_str(), "settings-changed", &settings);
+        }
+    }
     Ok(settings)
 }
 

@@ -49,6 +49,7 @@ It runs your own login shell (zsh, bash, fish, PowerShell, or whatever you use) 
 
 | Action | macOS | Windows and Linux |
 | --- | --- | --- |
+| New window | ⌘N | Ctrl+Shift+N |
 | New tab | ⌘T | Ctrl+Shift+T |
 | Close pane, or tab | ⌘W | Ctrl+Shift+W |
 | Split side by side | ⌘D | Ctrl+Shift+D |

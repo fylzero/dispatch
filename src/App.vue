@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from "vue";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import TabBar from "./components/TabBar.vue";
 import TerminalTabView from "./components/TerminalTabView.vue";
 import ContextMenu from "./components/ContextMenu.vue";
@@ -10,7 +11,7 @@ import Modal from "./components/Modal.vue";
 import Toast from "./components/Toast.vue";
 import { useUpdater } from "./composables/useUpdater";
 import { isMac } from "./platform";
-import { loadSettings, settings, settingsLoaded, zoom } from "./settings";
+import { applySavedSettings, loadSettings, settings, settingsLoaded, zoom } from "./settings";
 import {
   CHANGELOG_TAB_ID,
   SETTINGS_TAB_ID,
@@ -30,6 +31,7 @@ import {
   tabs,
   terminalTabs,
 } from "./tabs";
+import type { Settings } from "./types";
 import { dismissToast, pauseToast, resumeToast, showToast, toastKind, toastMessage } from "./toast";
 
 const SettingsView = defineAsyncComponent(() => import("./views/SettingsView.vue"));
@@ -82,6 +84,9 @@ function onContextMenu(event: MouseEvent) {
 }
 
 onMounted(async () => {
+  /* Menu shortcuts go to the window in front only, so listen on this window, not app-wide. */
+  const appWindow = getCurrentWebviewWindow();
+  const listen = appWindow.listen.bind(appWindow);
   window.addEventListener("keydown", onWindowKeydown, true);
   window.addEventListener("contextmenu", onContextMenu);
   unlisten.push(
@@ -107,6 +112,8 @@ onMounted(async () => {
     await listen("zoom-out", () => zoom(-1)),
     await listen("zoom-reset", () => zoom("reset")),
     await listen("check-for-updates", () => void checkForUpdatesNow()),
+    /* Saved in another window. */
+    await listen<Settings>("settings-changed", ({ payload }) => applySavedSettings(payload)),
     /* Tauri takes file drops from the webview, so their paths come through here. */
     await getCurrentWebview().onDragDropEvent(({ payload }) => {
       if (payload.type === "leave") return dragOver(-1, -1);

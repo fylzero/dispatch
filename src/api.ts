@@ -13,8 +13,11 @@ export const readTextFile = (path: string) => invoke<string>("read_text_file", {
 export const writeTextFile = (path: string, contents: string) => invoke<void>("write_text_file", { path, contents });
 export const setToggleHotkey = (accelerator: string) => invoke<void>("set_toggle_hotkey", { accelerator });
 export const pauseToggleHotkey = (paused: boolean) => invoke<void>("pause_toggle_hotkey", { paused });
-/** Hides the window and leaves Dispatch in the menu bar. */
-export const hideWindow = () => invoke<void>("hide_window");
+/**
+ * Closes this window, or only hides it when it is the last one and Dispatch
+ * keeps running in the background (then it returns true).
+ */
+export const closeWindow = () => invoke<boolean>("close_window");
 
 export interface OpenTerminalOptions {
   cols: number;

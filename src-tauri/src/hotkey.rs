@@ -25,7 +25,7 @@ fn parse(accelerator: &str) -> Result<Shortcut, String> {
 
 pub fn handle(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state() == ShortcutState::Pressed {
-        crate::toggle_main(app);
+        crate::windows::toggle(app);
     }
 }
 

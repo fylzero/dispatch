@@ -13,7 +13,6 @@ import {
 } from "./splits";
 import * as api from "./api";
 import { isWindows } from "./platform";
-import { settings } from "./settings";
 import { showToast } from "./toast";
 
 export const SETTINGS_TAB_ID = "settings";
@@ -372,9 +371,9 @@ export function activateIndex(index: number) {
 
 /**
  * Closes a tab, with every pane in it, and shows its neighbour. With nothing
- * left the window closes, which quits the app, the same as in Terminal. When
- * Dispatch keeps running in the background it hides instead, with a fresh
- * tab ready for the next time it is shown.
+ * left the window closes; closing the last window quits the app, the same as
+ * in Terminal. When Dispatch keeps running in the background the last window
+ * hides instead, with a fresh tab ready for the next time it is shown.
  */
 export function closeTab(id: string) {
   const list = tabs.value;
@@ -391,12 +390,10 @@ export function closeTab(id: string) {
 
   const remaining = tabs.value;
   if (!remaining.length) {
-    if (settings.value.keepRunningInBackground) {
-      newTerminal();
-      void api.hideWindow().catch(() => undefined);
-    } else {
-      void getCurrentWindow().close();
-    }
+    void api
+      .closeWindow()
+      .then((hidden) => hidden && newTerminal())
+      .catch(() => getCurrentWindow().close());
     return;
   }
   if (activeId.value === id) {

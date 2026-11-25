@@ -6,13 +6,15 @@ use std::thread;
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use tauri::ipc::{Channel, Response};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 use uuid::Uuid;
 
 use crate::prompt;
 use crate::settings::SettingsState;
 
 struct TerminalSession {
+    /// The window whose page opened it; its shells end when it closes.
+    window: String,
     writer: Mutex<Box<dyn Write + Send>>,
     master: Box<dyn MasterPty + Send>,
     child: Mutex<Box<dyn portable_pty::Child + Send + Sync>>,
@@ -139,6 +141,7 @@ fn start_dir(app: &AppHandle, cwd: Option<String>, configured: &str) -> Option<P
 #[tauri::command]
 pub fn open_terminal(
     app: AppHandle,
+    window: WebviewWindow,
     state: State<TerminalState>,
     cols: u16,
     rows: u16,
@@ -207,6 +210,7 @@ pub fn open_terminal(
     lock_sessions(&state)?.insert(
         id.clone(),
         TerminalSession {
+            window: window.label().to_string(),
             writer: Mutex::new(writer),
             master: pair.master,
             child: Mutex::new(child),
@@ -273,6 +277,24 @@ pub fn resize_terminal(
 pub fn close_terminal(state: State<TerminalState>, id: String) -> Result<(), String> {
     lock_sessions(&state)?.remove(&id);
     Ok(())
+}
+
+/// Ends the shells of a window that has closed. Dropping a session kills its shell.
+pub fn close_window_terminals(app: &AppHandle, window: &str) {
+    let state = app.state::<TerminalState>();
+    let closed: Vec<TerminalSession> = match lock_sessions(&state) {
+        Ok(mut sessions) => {
+            let ids: Vec<String> = sessions
+                .iter()
+                .filter(|(_, session)| session.window == window)
+                .map(|(id, _)| id.clone())
+                .collect();
+            ids.iter().filter_map(|id| sessions.remove(id)).collect()
+        }
+        Err(_) => return,
+    };
+    /* Killed outside the lock. */
+    drop(closed);
 }
 
 /// The folder a process is in, read from the system.

@@ -57,6 +57,11 @@ export async function loadSettings() {
 
 let saveTimer: number | undefined;
 
+/** Settings another window saved; this one only takes them on. */
+export function applySavedSettings(saved: Settings) {
+  settings.value = { ...DEFAULT_SETTINGS, ...saved };
+}
+
 /**
  * Replaces every setting at once, as the JSON tab's Save and Import do. Missing
  * keys fall back to their defaults, and the toggle hotkey is re-registered if it changed.

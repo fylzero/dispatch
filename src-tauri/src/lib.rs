@@ -6,11 +6,13 @@ mod prompt;
 mod pty;
 mod settings;
 mod tray;
+mod windows;
 
 use pty::TerminalState;
 use settings::SettingsState;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, WindowEvent};
+use windows::WindowsState;
 
 /// "Keep running in the background": close and ⌘Q hide the window instead.
 pub fn keep_running(app: &AppHandle) -> bool {
@@ -21,70 +23,24 @@ pub fn keep_running(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-/// Bring the window forward on the desktop the user is on.
-pub fn show_main(app: &AppHandle) {
-    let Some(window) = app.get_webview_window("main") else {
-        return;
-    };
-    /*
-     * Hidden, Dispatch lives in the menu bar only. An unbundled dev binary
-     * keeps its Dock icon throughout: switching it back and forth loses the
-     * app's name and icon.
-     */
-    #[cfg(all(target_os = "macos", not(debug_assertions)))]
-    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
-    #[cfg(target_os = "macos")]
-    let _ = app.show();
-    let _ = window.unminimize();
-    let _ = window.show();
-    let _ = window.set_focus();
-}
-
-/// Back to the menu bar. The tabs and their shells keep running.
-pub fn hide_main(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
-    }
-    #[cfg(target_os = "macos")]
-    {
-        #[cfg(not(debug_assertions))]
-        let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-        /* Hand focus back to the app the user came from. */
-        let _ = app.hide();
-    }
-}
-
-/// The toggle hotkey: hide Dispatch if it is in front, otherwise bring it up.
-pub fn toggle_main(app: &AppHandle) {
-    let Some(window) = app.get_webview_window("main") else {
-        return;
-    };
-    let visible = window.is_visible().unwrap_or(false) && !window.is_minimized().unwrap_or(false);
-    if visible && window.is_focused().unwrap_or(false) {
-        hide_main(app);
-    } else {
-        show_main(app);
-    }
-}
-
-#[tauri::command]
-fn hide_window(app: AppHandle) {
-    hide_main(&app);
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         /* Opening Dispatch again while it runs in the background shows it. */
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            show_main(app);
+            windows::show(app);
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        /* Only the first window's size and place are remembered; ⌘N windows cascade from the current one. */
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_filter(|label| label == windows::MAIN)
+                .build(),
+        )
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(hotkey::handle)
@@ -104,22 +60,28 @@ pub fn run() {
             tray::build(&handle, &loaded)?;
             app.manage(SettingsState(Mutex::new(loaded)));
             app.manage(TerminalState::default());
-            if let Some(window) = app.get_webview_window("main") {
-                corners::round(&window);
-                /* The hotkey opens the window on the Space the user is on, not the one it was left on. */
-                follow_active_space(&window);
+            app.manage(WindowsState::default());
+            if let Some(window) = app.get_webview_window(windows::MAIN) {
+                windows::prepare(&window);
             }
             Ok(())
         })
         .on_window_event(|window, event| {
-            if window.label() != "main" {
-                return;
-            }
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                if keep_running(window.app_handle()) {
-                    api.prevent_close();
-                    hide_main(window.app_handle());
+            let app = window.app_handle();
+            match event {
+                WindowEvent::Focused(true) => windows::remember_focus(app, window.label()),
+                /* Closing the last window hides it instead, so its tabs are there next time. */
+                WindowEvent::CloseRequested { api, .. } => {
+                    if let Some(webview) = app.get_webview_window(window.label()) {
+                        if windows::is_last(&webview) && keep_running(app) {
+                            api.prevent_close();
+                            windows::hide(app);
+                        }
+                    }
                 }
+                /* A closed window's shells go with it. */
+                WindowEvent::Destroyed => pty::close_window_terminals(app, window.label()),
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -136,7 +98,7 @@ pub fn run() {
             pty::terminal_cwd,
             hotkey::set_toggle_hotkey,
             hotkey::pause_toggle_hotkey,
-            hide_window,
+            windows::close_window,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Dispatch")
@@ -147,30 +109,7 @@ pub fn run() {
             }
             /* Clicking the Dock icon (or opening the app) while the window is hidden. */
             #[cfg(target_os = "macos")]
-            tauri::RunEvent::Reopen { .. } => show_main(app),
+            tauri::RunEvent::Reopen { .. } => windows::show(app),
             _ => {}
         });
 }
-
-#[cfg(target_os = "macos")]
-fn follow_active_space(window: &tauri::WebviewWindow) {
-    use objc2::msg_send;
-    use objc2::runtime::AnyObject;
-
-    /// NSWindowCollectionBehaviorMoveToActiveSpace
-    const MOVE_TO_ACTIVE_SPACE: usize = 1 << 1;
-    let Ok(ns_window) = window.ns_window() else {
-        return;
-    };
-    let ns_window = ns_window as *mut AnyObject;
-    if ns_window.is_null() {
-        return;
-    }
-    unsafe {
-        let behavior: usize = msg_send![ns_window, collectionBehavior];
-        let _: () = msg_send![ns_window, setCollectionBehavior: behavior | MOVE_TO_ACTIVE_SPACE];
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn follow_active_space(_window: &tauri::WebviewWindow) {}

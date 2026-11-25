@@ -1,8 +1,10 @@
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
 
 /// Menu items whose id is also the event the page listens for.
 pub const NEW_TAB_ID: &str = "new-tab";
+/// Handled here: each window is its own page.
+pub const NEW_WINDOW_ID: &str = "new-window";
 pub const CLOSE_TAB_OR_WINDOW_ID: &str = "close-tab-or-window";
 pub const NEXT_TAB_ID: &str = "next-tab";
 pub const PREVIOUS_TAB_ID: &str = "previous-tab";
@@ -78,6 +80,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let item =
         |id: &str, label: &str, accel: &str| MenuItem::with_id(app, id, label, true, Some(accel));
 
+    let new_window = item(NEW_WINDOW_ID, "New Window", &format!("{MOD}+N"))?;
     let new_tab = item(NEW_TAB_ID, "New Tab", &format!("{MOD}+T"))?;
     let close = item(CLOSE_TAB_OR_WINDOW_ID, "Close", &format!("{MOD}+W"))?;
     let split_vertical = item(SPLIT_VERTICAL_ID, "Split Vertically", SPLIT_KEYS.0)?;
@@ -144,6 +147,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
                 "Shell",
                 true,
                 &[
+                    &new_window,
                     &new_tab,
                     &PredefinedMenuItem::separator(app)?,
                     &split_vertical,
@@ -158,6 +162,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
                 "File",
                 true,
                 &[
+                    &new_window,
                     &new_tab,
                     &split_vertical,
                     &split_horizontal,
@@ -233,16 +238,19 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 pub fn handle_event(app: &AppHandle, id: &str) {
     if id == QUIT_ID {
         if crate::keep_running(app) {
-            crate::hide_main(app);
+            crate::windows::hide(app);
         } else {
             app.exit(0);
         }
         return;
     }
-    if !FORWARDED.contains(&id) {
+    if id == NEW_WINDOW_ID {
+        if let Err(err) = crate::windows::open(app) {
+            eprintln!("Could not open a new window: {err}");
+        }
         return;
     }
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.emit(id, ());
+    if FORWARDED.contains(&id) {
+        crate::windows::emit_to_current(app, id);
     }
 }

@@ -9,6 +9,9 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: "1.1.0",
     date: "November 25, 2026",
     notes: [
+      "Open more windows with Command+N (Ctrl+Shift+N on Windows and Linux), or New Window in the Shell menu or the menu bar icon. Each window has its own tabs, and opens the size of the one in front, a little down and to the right of it.",
+      "Shortcuts like Command+T, Command+W, and the splits act on the window in front. Closing a window, or its last tab, closes just that window and its shells. The last window still only hides when Dispatch keeps running in the background.",
+      "The show-or-hide hotkey and the menu bar icon bring every window back at once, with the one you used last in front. A setting changed in one window applies to all of them.",
       "Dispatch checks for updates on its own: when it starts and every few hours after. When a new version is ready, the update icon appears in the tab bar and Dispatch asks whether to install it. Nothing installs without your OK.",
       "Dispatch usually stays running in the background, so when an update turns up while its window is hidden you get a system notification, and the install prompt opens the next time you bring Dispatch up.",
       "An update found while you're working doesn't interrupt you. The tab bar icon appears right away, and the prompt waits until you next come back to the window.",

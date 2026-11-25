@@ -7,7 +7,9 @@
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
-use tauri::{AppHandle, Emitter, Wry};
+use tauri::{AppHandle, Wry};
+
+use crate::windows;
 
 use crate::settings::Settings;
 
@@ -30,6 +32,7 @@ fn menu(app: &AppHandle, settings: &Settings) -> tauri::Result<Menu<Wry>> {
                 "Show or Hide Dispatch",
                 &settings.toggle_hotkey,
             )?,
+            &item(app, "tray-new-window", "New Window", "")?,
             &item(app, "tray-new-tab", "New Tab", "")?,
             &PredefinedMenuItem::separator(app)?,
             &item(app, "tray-settings", "Settings…", "")?,
@@ -61,18 +64,23 @@ pub fn build(app: &AppHandle, settings: &Settings) -> tauri::Result<TrayIcon> {
         .menu(&menu(app, settings)?)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "tray-toggle" => crate::toggle_main(app),
+            "tray-toggle" => windows::toggle(app),
+            "tray-new-window" => {
+                if let Err(err) = windows::open(app) {
+                    eprintln!("Could not open a new window: {err}");
+                }
+            }
             "tray-new-tab" => {
-                crate::show_main(app);
-                let _ = app.emit_to("main", "new-tab", ());
+                windows::show(app);
+                windows::emit_to_current(app, "new-tab");
             }
             "tray-settings" => {
-                crate::show_main(app);
-                let _ = app.emit_to("main", "open-settings", ());
+                windows::show(app);
+                windows::emit_to_current(app, "open-settings");
             }
             "tray-updates" => {
-                crate::show_main(app);
-                let _ = app.emit_to("main", "check-for-updates", ());
+                windows::show(app);
+                windows::emit_to_current(app, "check-for-updates");
             }
             "tray-quit" => app.exit(0),
             _ => {}
