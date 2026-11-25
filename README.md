@@ -36,7 +36,7 @@ It runs your own login shell (zsh, bash, fish, PowerShell, or whatever you use) 
 
 - **Tabs**: Open, close, reorder by dragging, and jump between them from the keyboard
 - **Split panes**: Split the focused pane side by side or top and bottom, and split those panes again as deep as you like (up to 8 side by side or 12 stacked in one split). Resize by dragging the dividers, and move between panes from the keyboard
-- **Saved layouts**: Save a window's tabs and split panes, with their names, colors, and sizes, as a named layout from the ⋮ menu in the tab bar (up to 20). Open one again from the same menu, or have Dispatch open it at launch
+- **Saved layouts**: Save a window's tabs and split panes, with their names, colors, sizes, and each pane's folder, as a named layout from the ⋮ menu in the tab bar (up to 20). Open one again from the same menu, or have Dispatch open it at launch. Layouts are stored in settings.json, so the JSON tab's Export takes them along
 - **See-through window**: Set the terminal background's opacity, with an optional blur behind it (macOS and Windows)
 - **Themes**: Light, dark, or follow the system
 - **Fonts and cursor**: Pick the font, size, line height, and cursor shape

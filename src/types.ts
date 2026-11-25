@@ -37,12 +37,14 @@ export interface Settings {
   defaultLayout: string;
 }
 
-/** One pane in a saved layout: its share of its split, and its name and color. */
+/** One pane in a saved layout: its share of its split, its name and color, and the folder its shell was in. */
 export interface LayoutTemplatePane {
   kind: "pane";
   weight: number;
   name?: string;
   color?: string;
+  /** The folder the pane opens in; `~` is home. A missing folder falls back to the Starting directory. */
+  cwd?: string;
 }
 
 /** A split in a saved layout: "x" side by side, "y" stacked. */

@@ -1,4 +1,5 @@
 import { computed, nextTick, ref, toRaw } from "vue";
+import { homeDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   type Axis,
@@ -209,6 +210,8 @@ function buildNode(template: LayoutTemplateNode | undefined): LayoutNode {
   const id = newId("pane");
   const name = template?.kind === "pane" ? template.name : undefined;
   const color = template?.kind === "pane" ? template.color : undefined;
+  const cwd = template?.kind === "pane" ? template.cwd : undefined;
+  if (isName(cwd)) startDirs.set(id, Promise.resolve(cwd.trim()));
   if (isName(name)) paneNames.value = { ...paneNames.value, [id]: name.trim() };
   if (isColor(color)) paneColors.value = { ...paneColors.value, [id]: color };
   return { kind: "pane", id, weight };
@@ -267,22 +270,43 @@ export function openLayoutTabs(templates: LayoutTemplateTab[], replace: boolean)
   activate(opened[0].id);
 }
 
-function templateOf(node: LayoutNode): LayoutTemplateNode {
+/** A folder with the home folder written as `~`, so a layout still fits after moving to another account. */
+function tildePath(path: string, home: string) {
+  if (!home) return path;
+  if (path === home) return "~";
+  return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+}
+
+async function templateOf(node: LayoutNode, home: string): Promise<LayoutTemplateNode> {
   if (node.kind === "split") {
-    return { kind: "split", axis: node.axis, weight: node.weight, children: node.children.map(templateOf) };
+    const children = await Promise.all(node.children.map((child) => templateOf(child, home)));
+    return { kind: "split", axis: node.axis, weight: node.weight, children };
   }
   const name = paneNames.value[node.id];
   const color = paneColors.value[node.id];
-  return { kind: "pane", weight: node.weight, ...(name ? { name } : {}), ...(color ? { color } : {}) };
+  const dir = await (handles.get(node.id)?.cwd() ?? Promise.resolve(null)).catch(() => null);
+  const cwd = dir ? tildePath(dir, home) : undefined;
+  return {
+    kind: "pane",
+    weight: node.weight,
+    ...(name ? { name } : {}),
+    ...(color ? { color } : {}),
+    ...(cwd ? { cwd } : {}),
+  };
 }
 
-/** This window's terminal tabs as a layout template, in the order they are shown. */
-export function captureLayoutTabs(): LayoutTemplateTab[] {
-  return terminals.value.map((tab) => ({
-    ...(tab.name ? { name: tab.name } : {}),
-    ...(tab.color ? { color: tab.color } : {}),
-    root: templateOf(toRaw(tab.root)),
-  }));
+/** This window's terminal tabs as a layout template, in the order they are shown, with each pane's folder. */
+export async function captureLayoutTabs(): Promise<LayoutTemplateTab[]> {
+  const home = await homeDir()
+    .then((dir) => dir.replace(/\/+$/, ""))
+    .catch(() => "");
+  return Promise.all(
+    terminals.value.map(async (tab) => ({
+      ...(tab.name ? { name: tab.name } : {}),
+      ...(tab.color ? { color: tab.color } : {}),
+      root: await templateOf(toRaw(tab.root), home),
+    })),
+  );
 }
 
 

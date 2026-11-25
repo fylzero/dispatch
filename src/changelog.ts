@@ -9,8 +9,8 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: "1.1.0",
     date: "November 25, 2026",
     notes: [
-      "Save your layout from the new ⋮ menu in the tab bar, next to the version number. Save Layout… asks for a name and keeps every tab in the window, with its name and color, and its split panes, with their names, colors, and sizes. Save up to 20, and save with an existing name to update that one.",
-      "Your saved layouts are listed in the same menu, with a checkmark by the one the window is using. Pick one to switch the window to it: its tabs take the place of the ones open now. Click the pencil next to a layout to rename it, change whether it opens at launch, or delete it.",
+      "Save your layout from the new ⋮ menu in the tab bar, next to the version number. Save Layout… asks for a name and keeps every tab in the window, with its name and color, and its split panes, with their names, colors, sizes, and the folder each one is in, so they reopen right where you left them. Save up to 20, and save with an existing name to update that one.",
+      "Your saved layouts are listed in the same menu, with a checkmark by the one the window is using. Pick one to switch the window to it: its tabs take the place of the ones open now. Click the pencil next to a layout to rename it, change whether it opens at launch, or delete it. Layouts are kept in your settings, so they show in the JSON tab and go along when you export them.",
       "Tick Open at launch when you save or edit a layout to have Dispatch start with it. Only the first window opens it; new windows and tabs still start with a single terminal.",
       "Open more windows with Command+N (Ctrl+Shift+N on Windows and Linux), or New Window in the Shell menu or the menu bar icon. Each window has its own tabs, and opens the size of the one in front, a little down and to the right of it.",
       "Shortcuts like Command+T, Command+W, and the splits act on the window in front. Closing a window, or its last tab, closes just that window and its shells. The last window still only hides when Dispatch keeps running in the background.",

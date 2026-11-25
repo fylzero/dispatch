@@ -1,7 +1,8 @@
 /**
  * Saved layouts: named sets of terminal tabs, with their split panes, the
- * names and colors of both, and how big each pane is. They live in
- * settings.json, so every window shares them, and one can be set to open at
+ * names and colors of both, how big each pane is, and the folder each pane's
+ * shell was in. They live in settings.json, so every window shares them (and
+ * they go along with the JSON tab's Export), and one can be set to open at
  * launch, in the first window Dispatch opens.
  */
 import { computed } from "vue";
@@ -32,10 +33,10 @@ export function canSaveLayout(name: string) {
  * Saves this window's tabs under a name, replacing a layout with the same
  * name, and sets whether Dispatch opens it at launch.
  */
-export function saveLayout(rawName: string, openAtLaunch: boolean) {
+export async function saveLayout(rawName: string, openAtLaunch: boolean) {
   const name = rawName.trim().slice(0, MAX_LAYOUT_NAME);
   if (!name) return false;
-  const tabs = captureLayoutTabs();
+  const tabs = await captureLayoutTabs();
   if (!tabs.length) {
     showToast("Open a terminal tab first; a layout is made of terminal tabs.", "error");
     return false;

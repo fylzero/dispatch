@@ -91,11 +91,11 @@ function removeEdited() {
   closeDialog();
 }
 
-function submit() {
+async function submit() {
   if (!trimmed.value || full.value || taken.value) return;
   const done = editing.value
     ? editLayout(editing.value, trimmed.value, openAtLaunch.value)
-    : saveLayout(trimmed.value, openAtLaunch.value);
+    : await saveLayout(trimmed.value, openAtLaunch.value);
   if (done) closeDialog();
 }
 
