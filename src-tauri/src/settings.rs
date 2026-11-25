@@ -26,6 +26,8 @@ pub struct Settings {
     pub opacity: f32,
     /// Blur radius for what shows through the background; 0 turns it off.
     pub blur: u32,
+    /// How much unfocused panes in a split tab are dimmed, from 0 (off) to 0.8.
+    pub pane_dim: f32,
     /// Replace the zsh or bash prompt with chips for the Node version, folder,
     /// git branch, and changed files. Applies to new tabs.
     pub dispatch_prompt: bool,
@@ -63,6 +65,7 @@ impl Default for Settings {
             scrollback: 10_000,
             opacity: 0.8,
             blur: 8,
+            pane_dim: 0.4,
             dispatch_prompt: true,
             type_below_prompt: true,
             keep_running_in_background: true,
@@ -121,4 +124,22 @@ pub fn save_settings(
 #[tauri::command]
 pub fn settings_file_path(app: AppHandle) -> Result<String, String> {
     Ok(settings_path(&app)?.to_string_lossy().into_owned())
+}
+
+/// Writes a settings export to the file the user picked.
+#[tauri::command]
+pub fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    if path.trim().is_empty() {
+        return Err("Choose a file to export.".into());
+    }
+    fs::write(&path, contents).map_err(|err| format!("Could not write the file: {err}"))
+}
+
+/// Reads a settings file the user picked to import.
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    if path.trim().is_empty() {
+        return Err("Choose a file to import.".into());
+    }
+    fs::read_to_string(&path).map_err(|err| format!("Could not read the file: {err}"))
 }

@@ -21,6 +21,13 @@
   --bad-text: #ff8b93;
   --warn: #e6c07b;
   --selection: #2a3344;
+  --search-match: #00ffff8a;
+  --search-match-selected: #ff00ff8a;
+  --syntax-string: #3dd68c;
+  --syntax-number: #e6c07b;
+  --syntax-constant: #9ec1ff;
+  --syntax-type: #7ee0c7;
+  --syntax-bracket: #d7deea;
   --switch-knob: #e8edf5;
   /* Space-separated RGB for overlays, used as rgb(var(--tint) / alpha). */
   --tint: 255 255 255;
@@ -61,6 +68,13 @@
   --bad-text: #c0343e;
   --warn: #b07a12;
   --selection: #cfe0f7;
+  --search-match: #ffff0054;
+  --search-match-selected: #ff6a0054;
+  --syntax-string: #15803d;
+  --syntax-number: #a15c07;
+  --syntax-constant: #1d4ed8;
+  --syntax-type: #0e7a6b;
+  --syntax-bracket: #374151;
   --switch-knob: #ffffff;
   --tint: 0 0 0;
   --shadow: rgb(15 23 42 / 0.14);
@@ -389,6 +403,66 @@ textarea {
 .settings-pane.settings-form-page {
   overflow: visible;
   padding: 1.25rem 0;
+}
+
+.settings-json-pane {
+  height: 100%;
+  overflow: hidden;
+  padding: 1.25rem 0;
+}
+
+.settings-content.fill .settings-json-pane .settings-inner {
+  height: 100%;
+}
+
+.settings-header-actions .ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.settings-editor {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-copy {
+  position: absolute;
+  top: 0.45rem;
+  right: 1.55rem;
+  z-index: 1;
+}
+
+.settings-json {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+}
+
+.settings-json .cm-editor {
+  height: 100%;
+}
+
+.settings-json .cm-editor.cm-focused {
+  outline: 1px solid var(--accent);
+}
+
+.button-icon {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .settings-page {
@@ -1382,9 +1456,9 @@ button.switch:hover:not(:disabled) {
   flex: 1;
 }
 
-/* Only the focused pane's text is at full strength once a tab is split. */
+/* Only the focused pane's text is at full strength once a tab is split; --pane-dim sets how much the rest fade. */
 .split-root.split .split-pane:not(.focused) .terminal-host {
-  opacity: 0.6;
+  opacity: calc(1 - var(--pane-dim, 0.4));
   transition: opacity 0.12s ease;
 }
 

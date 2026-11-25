@@ -8,6 +8,31 @@ export const THEME_OPTIONS: { id: ThemePreference; label: string }[] = [
   { id: "dark", label: "Dark" },
 ];
 
+/**
+ * CodeMirror's own panels, search matches and selection, in the app's colors.
+ * Spread into each editor's theme so these win over CodeMirror's defaults.
+ */
+export const editorChrome = {
+  ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground":
+    { backgroundColor: "var(--selection)" },
+  ".cm-panels": { backgroundColor: "var(--bg-raised)", color: "var(--text)" },
+  ".cm-panels-top": { borderBottom: "1px solid var(--border)" },
+  ".cm-panels-bottom": { borderTop: "1px solid var(--border)" },
+  ".cm-textfield": {
+    backgroundColor: "var(--bg-input)",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+  },
+  ".cm-button": {
+    backgroundImage: "none",
+    backgroundColor: "var(--bg-raised)",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+  },
+  ".cm-searchMatch": { backgroundColor: "var(--search-match)" },
+  ".cm-searchMatch-selected": { backgroundColor: "var(--search-match-selected)" },
+};
+
 /** The last saved theme, so the window opens in it before the settings load. */
 const STORAGE_KEY = "theme";
 

@@ -1,21 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as api from "../../api";
 import HotkeyRecorder from "../../components/HotkeyRecorder.vue";
 import { formatAccelerator } from "../../hotkeys";
 import { settings, updateSettings } from "../../settings";
-import { THEME_OPTIONS } from "../../theme";
 import { showToast } from "../../toast";
 
 const SCROLLBACK_MIN = 500;
 const SCROLLBACK_MAX = 100_000;
-
-const settingsPath = ref("");
-
-onMounted(async () => {
-  settingsPath.value = await api.settingsFilePath().catch(() => "");
-});
 
 function onShell(event: Event) {
   updateSettings({ shell: (event.target as HTMLInputElement).value.trim() });
@@ -46,14 +37,6 @@ async function onToggleHotkey(accelerator: string) {
     showToast(api.errorMessage(err), "error");
   }
 }
-
-async function revealSettings() {
-  try {
-    await revealItemInDir(settingsPath.value);
-  } catch (err) {
-    showToast(api.errorMessage(err), "error");
-  }
-}
 </script>
 
 <template>
@@ -62,29 +45,11 @@ async function revealSettings() {
       <div class="settings-header">
         <div>
           <div class="brand">General</div>
-          <p class="muted tiny">Theme, the toggle hotkey, the shell and folder new tabs start in, and how much history they keep.</p>
+          <p class="muted tiny">The toggle hotkey, the shell and folder new tabs start in, and how much history they keep.</p>
         </div>
       </div>
 
       <section class="settings-card">
-        <div class="settings-row">
-          <div class="settings-row-copy">
-            <h3>Theme</h3>
-            <p class="muted tiny">System follows your light or dark appearance setting.</p>
-          </div>
-          <div class="segmented" role="group" aria-label="Theme">
-            <button
-              v-for="option in THEME_OPTIONS"
-              :key="option.id"
-              type="button"
-              :class="{ active: settings.theme === option.id }"
-              :aria-pressed="settings.theme === option.id"
-              @click="updateSettings({ theme: option.id })"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </div>
         <div class="settings-row">
           <div class="settings-row-copy">
             <h3>Toggle hotkey</h3>
@@ -174,15 +139,6 @@ async function revealSettings() {
                 @change="onScrollback"
               />
             </label>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-copy">
-            <h3>Settings file</h3>
-            <p class="muted tiny settings-path" :title="settingsPath">{{ settingsPath || "…" }}</p>
-          </div>
-          <div class="settings-control">
-            <button class="ghost" type="button" :disabled="!settingsPath" @click="revealSettings">Reveal</button>
           </div>
         </div>
       </section>

@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   scrollback: 10_000,
   opacity: 0.8,
   blur: 8,
+  paneDim: 0.4,
   dispatchPrompt: true,
   typeBelowPrompt: true,
   keepRunningInBackground: true,
@@ -54,6 +55,25 @@ export async function loadSettings() {
 }
 
 let saveTimer: number | undefined;
+
+/**
+ * Replaces every setting at once, as the JSON tab's Save and Import do. Missing
+ * keys fall back to their defaults, and the toggle hotkey is re-registered if it changed.
+ */
+export async function replaceSettings(next: unknown): Promise<Settings> {
+  if (!next || typeof next !== "object" || Array.isArray(next)) {
+    throw new Error("Settings must be a JSON object.");
+  }
+  const merged: Settings = { ...DEFAULT_SETTINGS, ...(next as Partial<Settings>) };
+  merged.theme = sanitizeTheme(merged.theme);
+  if (merged.toggleHotkey !== settings.value.toggleHotkey) {
+    await api.setToggleHotkey(merged.toggleHotkey);
+  }
+  window.clearTimeout(saveTimer);
+  const saved = await api.saveSettings(merged);
+  settings.value = { ...DEFAULT_SETTINGS, ...saved };
+  return settings.value;
+}
 
 /** Applies a change at once and writes settings.json shortly after. */
 export function updateSettings(patch: Partial<Settings>) {

@@ -19,6 +19,8 @@ export interface Settings {
   opacity: number;
   /** Blur radius behind the see-through background; 0 is off. */
   blur: number;
+  /** How much unfocused panes in a split tab are dimmed, 0 (off) to 0.8. */
+  paneDim: number;
   /** zsh and bash show Dispatch's prompt: Node version, folder, git branch, changed files. New tabs only. */
   dispatchPrompt: boolean;
   /** With the Dispatch prompt, commands are typed on the line below its chips instead of after them. New tabs only. */

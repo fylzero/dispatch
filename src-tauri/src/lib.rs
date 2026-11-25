@@ -79,6 +79,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_main(app);
         }))
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -124,6 +125,8 @@ pub fn run() {
             settings::get_settings,
             settings::save_settings,
             settings::settings_file_path,
+            settings::read_text_file,
+            settings::write_text_file,
             blur::set_window_blur,
             pty::open_terminal,
             pty::write_terminal,

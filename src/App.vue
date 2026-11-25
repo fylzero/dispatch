@@ -112,7 +112,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-shell" :style="{ '--terminal-opacity': settings.opacity }">
+  <div class="app-shell" :style="{ '--terminal-opacity': settings.opacity, '--pane-dim': settings.paneDim }">
     <TabBar />
     <main class="main">
       <template v-if="settingsLoaded">
