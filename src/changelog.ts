@@ -6,10 +6,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: "0.2.5",
+    version: "1.0.0",
     date: "November 24, 2026",
     notes: [
-      "Each command you run leaves a snapshot of its prompt above its output: a muted card with a clock that counts how long the command has run, to the millisecond, and shows the exit code if it fails.",
+      "The command line works like a text field. Click anywhere in the command to move the cursor there, or below it to jump to the end. Drag across the command to select part of it (the cursor hides while you do), then press Backspace or Delete to remove it, or just type to replace it.",
+      "Cut, Copy, and Paste work on a selection in the command, as in any text editor: Cut copies it and removes it, and Paste replaces it. Cut is new in the Edit menu, and on Windows and Linux it's Ctrl+Shift+X.",
+      "Pasted text looks like the rest of the command instead of standing out highlighted, in both zsh and bash.",
+      "Drag files or folders from Finder onto a terminal to type their paths, escaped the way Terminal.app does it. They go to the pane under the cursor, which shows an outline while you drag.",
+      "Command+A at the Dispatch prompt with nothing typed no longer selects the whole screen, and spaces the shell leaves behind after deleting a tab no longer count as part of the command.",
+      "Settings has a new Appearance tab with the theme, font, text size, line height, window opacity, and background blur, as in Lockshot, Recon, and Shipyard. Terminal keeps the cursor and prompt settings.",
+      "A new Dim unfocused panes slider in Appearance sets how much the other panes in a split fade while one has focus, from off to 80%. The default, 40%, is the look you had before.",
+      "A new JSON tab edits your settings file directly, with Copy, Reveal, Import, Export, Discard, and Save. It replaces the Settings file row in General.",
+      "Each command you run leaves a snapshot of its prompt above its output: a muted card with a clock that counts how long the command has run, to the millisecond (12.300s, then 2m05.120s and 2h12m23.043s for long ones), and shows the exit code if it fails.",
       "When a command's snapshot scrolls past the top of the pane, it stays pinned there until the next command's snapshot pushes it off.",
       "Dragging the line between split panes is smooth now: the text glides with it instead of shuddering, and each terminal resizes once when you let go.",
       "A little more room around the line you type on: a small gap between the prompt's chips and the cursor, and more space below it at the bottom of the pane.",

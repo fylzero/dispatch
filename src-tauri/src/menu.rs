@@ -166,14 +166,16 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
                     &close,
                 ],
             )?,
-            /* Native Copy and Paste reach xterm's own copy/paste handlers. On
-             * Windows and Linux the page handles Ctrl+Shift+C/V instead, so
-             * Ctrl+C stays an interrupt. */
+            /* Native Cut, Copy and Paste reach the pane's and xterm's
+             * clipboard handlers. On Windows and Linux the page handles
+             * Ctrl+Shift+X/C/V instead, so Ctrl+C stays an interrupt. */
             &Submenu::with_items(
                 app,
                 "Edit",
                 true,
                 &[
+                    #[cfg(target_os = "macos")]
+                    &PredefinedMenuItem::cut(app, None)?,
                     #[cfg(target_os = "macos")]
                     &PredefinedMenuItem::copy(app, None)?,
                     #[cfg(target_os = "macos")]

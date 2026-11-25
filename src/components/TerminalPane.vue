@@ -271,6 +271,12 @@ let blocks: Block[] = [];
  * the way to the line's start or end. Backspace or Delete then deletes those
  * characters with ordinary keys: Backspaces for text left of the cursor, or
  * Right arrows and then Backspaces for text right of it.
+ *
+ * The mouse works on any prompt's command line, also with arrows and
+ * Backspace: a click moves the cursor there, and text dragged over becomes a
+ * range selection that Backspace or Delete removes (moving to its end first),
+ * Cut removes after copying, and typing or Paste replaces. The cursor hides
+ * while text at the prompt is selected.
  */
 const SHIFT_ENTER = "\x1b[13;2u";
 const CLEAR_INPUT = "\x1b[127;9u";
@@ -387,15 +393,82 @@ function extendSelection(move: (line: LineSpan, focus: number) => number) {
   selectCells(from % term.cols, line.y + Math.floor(from / term.cols), to - from, { ...selection, focus });
 }
 
-/** Keys that delete a range selection in the shell. */
+/** Characters (not cells, since wide ones take two) on `line` from `from` up to `to`. */
+function charsBetween(line: LineSpan, from: number, to: number) {
+  let count = 0;
+  for (let pos = from; pos < to; pos++) if (charAt(line, pos) !== "") count++;
+  return count;
+}
+
+/** Arrow keys that move the shell's cursor from `from` to `to` on `line`. */
+function moveKeys(line: LineSpan, from: number, to: number) {
+  const app = term?.modes.applicationCursorKeysMode;
+  if (to >= from) return (app ? "\x1bOC" : "\x1b[C").repeat(charsBetween(line, from, to));
+  return (app ? "\x1bOD" : "\x1b[D").repeat(charsBetween(line, to, from));
+}
+
+/** Keys that delete a range selection in the shell: move to its end, then Backspace over it. */
 function deleteRange(selection: Extract<InputSelection, { kind: "range" }>) {
   const from = Math.min(selection.anchor, selection.focus);
   const to = Math.max(selection.anchor, selection.focus);
-  let count = 0;
-  for (let pos = from; pos < to; pos++) if (charAt(selection.line, pos) !== "") count++;
-  const right = term?.modes.applicationCursorKeysMode ? "\x1bOC" : "\x1b[C";
-  const back = "\x7f".repeat(count);
-  return selection.focus < selection.anchor ? back : right.repeat(count) + back;
+  const cursor = cursorLine()?.cursor ?? selection.anchor;
+  return moveKeys(selection.line, cursor, to) + "\x7f".repeat(charsBetween(selection.line, from, to));
+}
+
+/** Whether a shell prompt is waiting for a command, so clicks and selections can edit it. */
+function atInput() {
+  return (
+    !!term &&
+    !!inputStart &&
+    inputStart.marker.line >= 0 &&
+    term.buffer.active.type === "normal" &&
+    term.modes.mouseTrackingMode === "none"
+  );
+}
+
+/**
+ * A mouse selection that starts on the command's line (the cursor's), as a
+ * range there. It is trimmed to the command, so dragging past its end still
+ * counts; one that starts in the output above does not.
+ */
+function selectionOnInput(): InputSelection | null {
+  if (!term || !atInput()) return null;
+  const range = term.getSelectionPosition();
+  const at = cursorLine();
+  if (!range || !at || range.start.y < at.line.y) return null;
+  const { line } = at;
+  const from = Math.max(line.x, (range.start.y - line.y) * term.cols + range.start.x);
+  const to = Math.min(line.end, (range.end.y - line.y) * term.cols + range.end.x);
+  return from < to ? { kind: "range", line, anchor: from, focus: to } : null;
+}
+
+/* Like a text field, the cursor hides while text at the prompt is selected. */
+let cursorHidden = false;
+
+function syncCursorVisibility() {
+  if (!term) return;
+  const hide = term.hasSelection() && atInput();
+  if (hide === cursorHidden) return;
+  cursorHidden = hide;
+  term.write(hide ? "\x1b[?25l" : "\x1b[?25h");
+}
+
+/** A plain click on the command moves the cursor there; below it, to the end. */
+function onClickMoveCursor(event: MouseEvent) {
+  if (!term || event.button !== 0 || event.detail !== 1) return;
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+  if (term.hasSelection() || !atInput()) return;
+  const screen = term.element?.querySelector(".xterm-screen");
+  const at = cursorLine();
+  if (!screen || !at) return;
+  const rect = screen.getBoundingClientRect();
+  const col = Math.min(term.cols, Math.max(0, Math.round(((event.clientX - rect.left) / rect.width) * term.cols)));
+  const row = term.buffer.active.viewportY + Math.floor(((event.clientY - rect.top) / rect.height) * term.rows);
+  const { line } = at;
+  if (row < line.y) return;
+  const lastRow = line.y + Math.floor(Math.max(line.end - 1, 0) / term.cols);
+  const target = row > lastRow ? line.end : Math.min(line.end, Math.max(line.x, (row - line.y) * term.cols + col));
+  if (target !== at.cursor) send(moveKeys(line, at.cursor, target));
 }
 
 /** Where the command typed at the prompt starts and how many cells it covers, or nothing when not at a prompt. */
@@ -490,14 +563,20 @@ function addBlock() {
   blocks.push(block);
 }
 
-/** Run time to the millisecond: 0.049s, 12.300s, 2m 05.120s, 1h 02m 05.120s. */
+/**
+ * Run time to the millisecond: 0.049s, 12.300s, then 2m05.120s and
+ * 2h12m23.043s, with minutes and seconds padded once a larger unit leads.
+ */
 function formatElapsed(ms: number) {
-  const total = Math.floor(Math.max(0, ms)) / 1000;
-  if (total < 60) return `${total.toFixed(3)}s`;
-  const minutes = Math.floor(total / 60);
-  const seconds = (total - minutes * 60).toFixed(3).padStart(6, "0");
-  if (minutes < 60) return `${minutes}m ${seconds}s`;
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m ${seconds}s`;
+  const total = Math.floor(Math.max(0, ms));
+  const millis = String(total % 1000).padStart(3, "0");
+  const seconds = Math.floor(total / 1000) % 60;
+  const minutes = Math.floor(total / 60_000) % 60;
+  const hours = Math.floor(total / 3_600_000);
+  if (total < 60_000) return `${seconds}.${millis}s`;
+  const secs = `${String(seconds).padStart(2, "0")}.${millis}s`;
+  if (hours === 0) return `${minutes}m${secs}`;
+  return `${hours}h${String(minutes).padStart(2, "0")}m${secs}`;
 }
 
 /**
@@ -966,7 +1045,7 @@ function keepsInputSelected(event: KeyboardEvent) {
 
 /**
  * Keys the page handles instead of the shell. On Windows and Linux,
- * Ctrl+Shift+C/V copy and paste, so plain Ctrl+C stays an interrupt. At a
+ * Ctrl+Shift+X/C/V cut, copy and paste, so plain Ctrl+C stays an interrupt. At a
  * Dispatch prompt, Shift+Enter adds a line and Backspace deletes the part of
  * the command the pane selected (see SHIFT_ENTER).
  */
@@ -984,14 +1063,20 @@ function onKey(event: KeyboardEvent) {
   }
   if (inputSelection && event.type === "keydown" && !keepsInputSelected(event)) {
     const selected = inputSelection;
-    const remove = atPrompt && plain && !event.shiftKey && (event.key === "Backspace" || event.key === "Delete");
+    const deletes = plain && !event.shiftKey && (event.key === "Backspace" || event.key === "Delete");
+    /* Clearing the whole command needs the Dispatch prompt's binding; a range takes only arrows and Backspace. */
+    const remove = deletes && (selected.kind === "all" ? atPrompt : atInput());
     inputSelection = null;
     term?.clearSelection();
     if (remove) {
       send(selected.kind === "all" ? CLEAR_INPUT : deleteRange(selected));
       return false;
     }
+    /* Typing over a selection replaces it: delete it first, then xterm sends the character. */
+    if (!event.ctrlKey && !event.metaKey && event.key.length === 1) send(deleteKeys(selected));
   }
+  /* Typing ends a selection at the prompt, which brings the cursor back. */
+  if (cursorHidden && event.type === "keydown" && !keepsInputSelected(event)) term?.clearSelection();
   if (event.type !== "keydown" || isMac || !event.ctrlKey || !event.shiftKey) return true;
   const key = event.key.toLowerCase();
   if (key === "c") {
@@ -999,11 +1084,51 @@ function onKey(event: KeyboardEvent) {
     if (text) void navigator.clipboard.writeText(text);
     return false;
   }
+  if (key === "x") {
+    const text = term?.getSelection();
+    if (text) void navigator.clipboard.writeText(text);
+    send(takeSelection());
+    return false;
+  }
   if (key === "v") {
-    void navigator.clipboard.readText().then((text) => term?.paste(text));
+    /* Read first, so a failed read doesn't delete the selection. */
+    void navigator.clipboard.readText().then((text) => {
+      send(takeSelection());
+      term?.paste(text);
+    });
     return false;
   }
   return true;
+}
+
+/** Keys that delete `selected` from the command, or "" when it isn't on a command the pane can edit. */
+function deleteKeys(selected: InputSelection) {
+  if (selected.kind === "all") return promptBindsKeys && term?.buffer.active.type === "normal" ? CLEAR_INPUT : "";
+  return atInput() ? deleteRange(selected) : "";
+}
+
+/** Ends the pane's selection on the command and returns the keys that delete it, for Cut and Paste. */
+function takeSelection() {
+  const selected = inputSelection;
+  if (!selected) return "";
+  const keys = deleteKeys(selected);
+  inputSelection = null;
+  term?.clearSelection();
+  return keys;
+}
+
+/** Cut (the Edit menu): copy the selection, and delete it when it is part of the command. */
+function onCut(event: ClipboardEvent) {
+  const text = term?.getSelection();
+  if (!text || !event.clipboardData) return;
+  event.preventDefault();
+  event.clipboardData.setData("text/plain", text);
+  send(takeSelection());
+}
+
+/* Paste (the Edit menu) over a selection on the command replaces it; xterm then pastes as usual. */
+function onPaste() {
+  send(takeSelection());
 }
 
 onMounted(async () => {
@@ -1046,7 +1171,8 @@ onMounted(async () => {
   term.onTitleChange((title) => setTerminalTitle(props.id, title));
   term.parser.registerOscHandler(PROMPT_OSC, onPromptMark);
   term.onSelectionChange(() => {
-    if (!selectingInput) inputSelection = null;
+    if (!selectingInput) inputSelection = selectionOnInput();
+    syncCursorVisibility();
   });
   term.parser.registerCsiHandler({ final: "J" }, onEraseDisplay);
   term.onRender(schedulePin);
@@ -1075,6 +1201,10 @@ onMounted(async () => {
   /* Capture, so xterm doesn't select the word under a chip first. */
   node.addEventListener("mousedown", onRightMouseDown, true);
   node.addEventListener("contextmenu", onContextMenu, true);
+  node.addEventListener("mouseup", onClickMoveCursor);
+  /* Capture, so the selection is deleted before xterm sends the pasted text. */
+  node.addEventListener("cut", onCut, true);
+  node.addEventListener("paste", onPaste, true);
   resizeObserver = new ResizeObserver(onHostResize);
   resizeObserver.observe(node);
   await nextTick();
@@ -1088,6 +1218,9 @@ onUnmounted(() => {
   resizeObserver?.disconnect();
   host.value?.removeEventListener("mousedown", onRightMouseDown, true);
   host.value?.removeEventListener("contextmenu", onContextMenu, true);
+  host.value?.removeEventListener("mouseup", onClickMoveCursor);
+  host.value?.removeEventListener("cut", onCut, true);
+  host.value?.removeEventListener("paste", onPaste, true);
   if (sessionId) void api.closeTerminal(sessionId).catch(() => undefined);
   sessionId = "";
   chips = [];

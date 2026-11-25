@@ -51,6 +51,9 @@ bindkey -M viins $'\e[1;3D' __dispatch_word_left
 bindkey -M emacs $'\e[1;3C' __dispatch_word_right
 bindkey -M viins $'\e[1;3C' __dispatch_word_right
 
+# Pasted text looks like typed text, as in a text field, rather than standing out.
+zle_highlight=(${zle_highlight:#paste:*} paste:none)
+
 __dispatch_preexec() {
   __dispatch_ran=1
   # A blank line after the command: Dispatch draws the bottom of its card through it.

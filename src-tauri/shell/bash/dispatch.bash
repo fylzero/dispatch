@@ -120,3 +120,6 @@ if [ "${BASH_VERSINFO[0]}" -gt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${
   bind '"\e[1;3C": forward-word'
   __dispatch_newline_mark=";newline"
 fi
+# Pasted text looks like typed text, as in a text field, rather than standing
+# out (readline 8.1 and later highlight it; older ones don't know the setting).
+bind 'set enable-active-region off' 2>/dev/null || :
