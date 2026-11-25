@@ -3,6 +3,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import LayoutMenu from "./LayoutMenu.vue";
 import { useUpdater } from "../composables/useUpdater";
 import { colorRgb } from "../colors";
 import { openContextMenu } from "../contextMenu";
@@ -253,7 +254,7 @@ onBeforeUnmount(() => {
           </svg>
         </button>
       </div>
-      <button class="tab-new" type="button" :title="newTabTitle" aria-label="New tab" @click="newTerminal">
+      <button class="tab-new" type="button" :title="newTabTitle" aria-label="New tab" @click="newTerminal()">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 5v14" />
           <path d="M5 12h14" />
@@ -275,6 +276,7 @@ onBeforeUnmount(() => {
           <path d="M5 18h14" />
         </svg>
       </button>
+      <LayoutMenu />
       <button
         class="tab-version"
         :class="{ active: activeId === CHANGELOG_TAB_ID }"

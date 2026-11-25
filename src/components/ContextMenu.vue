@@ -37,10 +37,10 @@ function dismiss() {
   });
 }
 
-function choose(entry: MenuEntry & { kind: "item" }) {
+function choose(entry: MenuEntry & { kind: "item" }, action = entry.action) {
   if (entry.disabled) return;
   closeContextMenu();
-  entry.action();
+  action();
   /*
    * A rename focuses its field a tick later; handing the keyboard back to the
    * terminal then would blur the field and end the rename at once.
@@ -59,7 +59,11 @@ function pick(entry: MenuEntry & { kind: "colors" }, id: string | undefined) {
 }
 
 function onPointerDown(event: PointerEvent) {
-  if (contextMenu.value && !menuEl.value?.contains(event.target as Node)) dismiss();
+  const open = contextMenu.value;
+  if (!open || menuEl.value?.contains(event.target as Node)) return;
+  /* The button that opened a dropdown closes it itself when clicked. */
+  if (open.anchor?.contains(event.target as Node)) return;
+  dismiss();
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -134,16 +138,52 @@ onBeforeUnmount(() => {
           />
         </div>
       </div>
+      <div v-else-if="entry.edit" class="context-row">
+        <button
+          class="context-item"
+          :class="{ danger: entry.danger }"
+          type="button"
+          :role="entry.checked === undefined ? 'menuitem' : 'menuitemradio'"
+          :aria-checked="entry.checked === undefined ? undefined : entry.checked"
+          :disabled="entry.disabled"
+          @click="choose(entry)"
+        >
+          <span class="context-label">
+            <span class="context-label-text">{{ entry.label }}</span>
+            <svg v-if="entry.checked" class="context-check" viewBox="0 0 16 16" aria-label="Selected">
+              <path d="m3.5 8.5 3 3 6-7" />
+            </svg>
+          </span>
+          <span v-if="entry.hint" class="context-hint">{{ entry.hint }}</span>
+        </button>
+        <button
+          class="context-row-edit"
+          type="button"
+          :title="entry.edit.label"
+          :aria-label="entry.edit.label"
+          @click="choose(entry, entry.edit.action)"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M10.6 2.9a1.4 1.4 0 0 1 2 2L5.4 12.1 2.6 13l.9-2.8 7.1-7.3Z" />
+          </svg>
+        </button>
+      </div>
       <button
         v-else
         class="context-item"
         :class="{ danger: entry.danger }"
         type="button"
-        role="menuitem"
+        :role="entry.checked === undefined ? 'menuitem' : 'menuitemradio'"
+        :aria-checked="entry.checked === undefined ? undefined : entry.checked"
         :disabled="entry.disabled"
         @click="choose(entry)"
       >
-        <span>{{ entry.label }}</span>
+        <span class="context-label">
+          <span class="context-label-text">{{ entry.label }}</span>
+          <svg v-if="entry.checked" class="context-check" viewBox="0 0 16 16" aria-label="Selected">
+            <path d="m3.5 8.5 3 3 6-7" />
+          </svg>
+        </span>
         <span v-if="entry.hint" class="context-hint">{{ entry.hint }}</span>
       </button>
     </template>

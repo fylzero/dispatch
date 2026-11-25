@@ -24,6 +24,8 @@ export const DEFAULT_SETTINGS: Settings = {
   keepRunningInBackground: true,
   toggleHotkey: isMac ? "Cmd+Backquote" : "Ctrl+Backquote",
   autoCheckUpdates: true,
+  layouts: [],
+  defaultLayout: "",
 };
 
 export const settings = ref<Settings>({ ...DEFAULT_SETTINGS, theme: themePreference.value });

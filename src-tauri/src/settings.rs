@@ -43,6 +43,13 @@ pub struct Settings {
     /// Look for a new release at launch and every few hours, and say when one
     /// is ready to install.
     pub auto_check_updates: bool,
+    /// Layouts saved from the tab bar's menu: each a name and its tabs, with
+    /// their split panes, names, colors and sizes. Kept as plain JSON, since
+    /// only the window reads them.
+    pub layouts: Vec<serde_json::Value>,
+    /// The saved layout the first window opens with when Dispatch starts.
+    /// Later windows, and blank, open one plain tab.
+    pub default_layout: String,
 }
 
 /// ⌘` on macOS, Ctrl+` elsewhere.
@@ -74,6 +81,8 @@ impl Default for Settings {
             keep_running_in_background: true,
             toggle_hotkey: default_toggle_hotkey(),
             auto_check_updates: true,
+            layouts: Vec::new(),
+            default_layout: String::new(),
         }
     }
 }

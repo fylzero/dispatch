@@ -5,6 +5,7 @@ import {
   type Direction,
   type LayoutNode,
   countPanes,
+  firstPane,
   layout,
   neighborOf,
   removePane,
@@ -12,8 +13,11 @@ import {
   splitPane,
 } from "./splits";
 import * as api from "./api";
+import { LABEL_COLORS } from "./colors";
 import { isWindows } from "./platform";
+import { settings } from "./settings";
 import { showToast } from "./toast";
+import type { LayoutTemplateNode, LayoutTemplateTab, SavedLayout } from "./types";
 
 export const SETTINGS_TAB_ID = "settings";
 export const CHANGELOG_TAB_ID = "changelog";
@@ -180,12 +184,107 @@ export function focusPane(tabId: string, paneId: string) {
   tab.activePane = paneId;
 }
 
-export function newTerminal() {
-  const pane = newId("pane");
-  const tab: TerminalTab = { id: `term-${nextTab++}`, root: { kind: "pane", id: pane, weight: 1 }, activePane: pane };
+/** The saved layout this window last opened or saved, shown with a check in the layouts menu. */
+export const currentLayout = ref<string | null>(null);
+
+/** The saved layout Dispatch opens with at launch, if one is set and still saved. */
+export function defaultLayout(): SavedLayout | undefined {
+  const { layouts, defaultLayout: name } = settings.value;
+  return name ? layouts?.find((saved) => saved.name === name && saved.tabs?.length) : undefined;
+}
+
+const isColor = (value: unknown): value is string =>
+  typeof value === "string" && LABEL_COLORS.some((color) => color.id === value);
+const isName = (value: unknown): value is string => typeof value === "string" && value.trim() !== "";
+const weightOf = (value: unknown) => (typeof value === "number" && value > 0 && Number.isFinite(value) ? value : 1);
+
+/** A layout tree from a template, with fresh ids, naming and coloring its panes. Bad entries become plain panes. */
+function buildNode(template: LayoutTemplateNode | undefined): LayoutNode {
+  const weight = weightOf(template?.weight);
+  if (template?.kind === "split" && Array.isArray(template.children) && template.children.length) {
+    const children = template.children.map(buildNode);
+    if (children.length === 1) return { ...children[0], weight };
+    return { kind: "split", id: newId("split"), axis: template.axis === "y" ? "y" : "x", weight, children };
+  }
+  const id = newId("pane");
+  const name = template?.kind === "pane" ? template.name : undefined;
+  const color = template?.kind === "pane" ? template.color : undefined;
+  if (isName(name)) paneNames.value = { ...paneNames.value, [id]: name.trim() };
+  if (isColor(color)) paneColors.value = { ...paneColors.value, [id]: color };
+  return { kind: "pane", id, weight };
+}
+
+function buildTab(template?: LayoutTemplateTab): TerminalTab {
+  const root: LayoutNode = template ? buildNode(template.root) : { kind: "pane", id: newId("pane"), weight: 1 };
+  root.weight = 1;
+  const name = template?.name;
+  const color = template?.color;
+  return {
+    id: `term-${nextTab++}`,
+    root,
+    activePane: firstPane(root),
+    name: isName(name) ? name.trim() : undefined,
+    color: isColor(color) ? color : undefined,
+  };
+}
+
+/** A new terminal tab: one pane, or the panes of a layout's tab. */
+export function newTerminal(template?: LayoutTemplateTab) {
+  const tab = buildTab(template);
   terminals.value = [...terminals.value, tab];
   activeId.value = tab.id;
 }
+
+/**
+ * What a window opens with: at launch (the first window) every tab of the
+ * layout set to open at launch, if any; otherwise, and in every later
+ * window, one plain tab.
+ */
+export function openStartTabs(launch: boolean) {
+  const saved = launch ? defaultLayout() : undefined;
+  if (!saved) {
+    currentLayout.value = null;
+    newTerminal();
+    return;
+  }
+  openLayoutTabs(saved.tabs, false);
+  currentLayout.value = saved.name;
+}
+
+/**
+ * Opens a layout's tabs in this window, after the tabs already open or in
+ * place of them (closing their shells), and shows the first one.
+ */
+export function openLayoutTabs(templates: LayoutTemplateTab[], replace: boolean) {
+  if (!templates.length) return;
+  const opened = templates.map(buildTab);
+  if (replace) {
+    forgetPanes(terminals.value.flatMap((tab) => layout(tab.root).panes.map((pane) => pane.id)));
+    renamingTab.value = null;
+    renamingPane.value = null;
+  }
+  terminals.value = [...(replace ? [] : terminals.value), ...opened];
+  activate(opened[0].id);
+}
+
+function templateOf(node: LayoutNode): LayoutTemplateNode {
+  if (node.kind === "split") {
+    return { kind: "split", axis: node.axis, weight: node.weight, children: node.children.map(templateOf) };
+  }
+  const name = paneNames.value[node.id];
+  const color = paneColors.value[node.id];
+  return { kind: "pane", weight: node.weight, ...(name ? { name } : {}), ...(color ? { color } : {}) };
+}
+
+/** This window's terminal tabs as a layout template, in the order they are shown. */
+export function captureLayoutTabs(): LayoutTemplateTab[] {
+  return terminals.value.map((tab) => ({
+    ...(tab.name ? { name: tab.name } : {}),
+    ...(tab.color ? { color: tab.color } : {}),
+    root: templateOf(toRaw(tab.root)),
+  }));
+}
+
 
 function terminalTab(id: string) {
   return terminals.value.find((tab) => tab.id === id);
@@ -392,7 +491,7 @@ export function closeTab(id: string) {
   if (!remaining.length) {
     void api
       .closeWindow()
-      .then((hidden) => hidden && newTerminal())
+      .then((hidden) => hidden && openStartTabs(false))
       .catch(() => getCurrentWindow().close());
     return;
   }

@@ -26,6 +26,7 @@ import {
   focusNeighbor,
   newTerminal,
   openSettings,
+  openStartTabs,
   settingsOpen,
   splitActive,
   tabs,
@@ -123,7 +124,8 @@ onMounted(async () => {
     }),
   );
   await loadSettings();
-  newTerminal();
+  /* Only the first window, made when Dispatch starts, opens the layout set to open at launch. */
+  openStartTabs(appWindow.label === "main");
   /* Look for a newer release now and every few hours; the tab bar shows an icon and a prompt if there is one. */
   unlisten.push(startAutoChecks(() => settings.value.autoCheckUpdates));
 });

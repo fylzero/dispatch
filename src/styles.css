@@ -802,6 +802,11 @@ button.tab-version.active:hover:not(:disabled) {
   opacity: 0.55;
 }
 
+.tab-tool svg.tab-tool-dots {
+  fill: currentColor;
+  stroke: none;
+}
+
 .tab-tool svg.tab-tool-github {
   width: 1rem;
   height: 1rem;
@@ -1574,6 +1579,45 @@ button.switch:hover:not(:disabled) {
   margin-top: 1rem;
 }
 
+.modal-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 13px;
+}
+
+.layout-save-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.layout-launch-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modal-actions .layout-delete {
+  margin-right: auto;
+}
+
+.layout-launch-note {
+  margin: -0.4rem 0 0;
+}
+
+.layout-launch-check input {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .muted.tiny.settings-error {
   color: var(--bad);
 }
@@ -1689,6 +1733,8 @@ input.pane-rename {
   position: fixed;
   z-index: 60;
   min-width: 13rem;
+  max-height: calc(100vh - 12px);
+  overflow-y: auto;
   padding: 0.3rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1732,6 +1778,77 @@ button.context-item.danger:focus {
 
 .context-item:disabled {
   color: var(--text-faint);
+}
+
+.context-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.context-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 18rem;
+}
+
+.context-check {
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A menu row with a pencil button after it, which edits the item instead of choosing it. */
+.context-row {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.context-row .context-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.context-row-edit,
+button.context-row-edit:hover:not(:disabled),
+button.context-row-edit:active {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-faint);
+  cursor: default;
+}
+
+button.context-row-edit:hover:not(:disabled),
+button.context-row-edit:focus-visible {
+  outline: none;
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.context-row-edit svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
 }
 
 .context-hint {
