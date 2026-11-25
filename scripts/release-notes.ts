@@ -17,7 +17,7 @@ const DOWNLOADS = [
   "macOS: download Dispatch-macos-arm64.dmg for Apple Silicon Macs.",
   "Linux: download Dispatch-linux-x64.AppImage, .deb, or .rpm for Intel and AMD PCs, or the Dispatch-linux-arm64 files for ARM.",
   "Windows: download Dispatch-windows-x64.exe for Intel and AMD PCs, or Dispatch-windows-arm64.exe for ARM.",
-  "The Windows installer isn't code-signed yet, so SmartScreen may warn: click More info, then Run anyway.",
+  "The Windows installer is signed by RazorKode LLC. If SmartScreen still warns about a new release, click More info, then Run anyway.",
 ];
 
 function configVersion(): string {

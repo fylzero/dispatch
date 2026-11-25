@@ -39,8 +39,7 @@ PC** the first time someone runs one.
 ### How it works
 
 1. `azure/login` signs in to Azure with the job's GitHub OIDC token. There is no
-   client secret. The `Dispatch` app registration (create it, as for the other apps,
-   before setting the variables below) in the RazorKode LLC Microsoft Entra
+   client secret. The `Dispatch` app registration in the RazorKode LLC Microsoft Entra
    directory trusts only this repository's `release` environment, which is why the
    job sets `environment: release` and `id-token: write`.
 2. `scripts/setup-windows-signing.ps1` downloads Microsoft's signing client (the

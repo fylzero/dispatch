@@ -134,7 +134,7 @@ Dispatch updates itself, so Homebrew leaves upgrades to it. If Dispatch is alrea
 2. Run it. It installs Dispatch for your user account without asking for administrator rights
 3. Launch Dispatch from the Start menu
 
-The installer isn't code-signed yet, so Windows SmartScreen may say **Windows protected your PC**. Click **More info**, then **Run anyway**. **Help → Check for Updates…** keeps Dispatch current.
+The installer is signed by RazorKode LLC. Right after a new release, Windows SmartScreen may still say **Windows protected your PC** until the release builds up downloads. If it does, click **More info**, then **Run anyway**. **Help → Check for Updates…** keeps Dispatch current.
 
 ### Installation on Linux
 
