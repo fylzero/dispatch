@@ -11,6 +11,7 @@
     "core:window:allow-set-theme",
     "core:window:allow-set-title",
     "dialog:default",
+    "notification:default",
     "opener:default",
     "opener:allow-reveal-item-in-dir",
     "window-state:default",

@@ -29,5 +29,7 @@ export interface Settings {
   keepRunningInBackground: boolean;
   /** Global shortcut that shows or hides Dispatch, like "Cmd+Backquote". Empty is off. */
   toggleHotkey: string;
+  /** Look for a new release at launch and every few hours, and say when one is ready. */
+  autoCheckUpdates: boolean;
 }
 

@@ -6,6 +6,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.1.0",
+    date: "November 25, 2026",
+    notes: [
+      "Dispatch checks for updates on its own: when it starts and every few hours after. When a new version is ready, the update icon appears in the tab bar and Dispatch asks whether to install it. Nothing installs without your OK.",
+      "Dispatch usually stays running in the background, so when an update turns up while its window is hidden you get a system notification, and the install prompt opens the next time you bring Dispatch up.",
+      "An update found while you're working doesn't interrupt you. The tab bar icon appears right away, and the prompt waits until you next come back to the window.",
+      "Turn this off with Check for updates automatically in General settings. Check for Updates… in the menu still works either way.",
+      "Later is remembered across restarts. Automatic checks wait a day before asking about that version again, while Check for Updates… always asks.",
+    ],
+  },
+  {
     version: "1.0.0",
     date: "November 24, 2026",
     notes: [

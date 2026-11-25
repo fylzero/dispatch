@@ -47,6 +47,7 @@ const {
   checkForUpdates,
   installUpdate,
   dismissPrompt,
+  startAutoChecks,
 } = useUpdater();
 
 /** Check for Updates… from the menu: always say how it went. */
@@ -116,8 +117,8 @@ onMounted(async () => {
   );
   await loadSettings();
   newTerminal();
-  /* Quietly look for a newer release; the tab bar shows an icon and a prompt if there is one. */
-  if (import.meta.env.PROD) void checkForUpdates({ prompt: true, silent: true });
+  /* Look for a newer release now and every few hours; the tab bar shows an icon and a prompt if there is one. */
+  unlisten.push(startAutoChecks(() => settings.value.autoCheckUpdates));
 });
 
 onUnmounted(() => {

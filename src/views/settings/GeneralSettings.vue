@@ -45,7 +45,7 @@ async function onToggleHotkey(accelerator: string) {
       <div class="settings-header">
         <div>
           <div class="brand">General</div>
-          <p class="muted tiny">The toggle hotkey, the shell and folder new tabs start in, and how much history they keep.</p>
+          <p class="muted tiny">The toggle hotkey, updates, the shell and folder new tabs start in, and how much history they keep.</p>
         </div>
       </div>
 
@@ -81,6 +81,28 @@ async function onToggleHotkey(accelerator: string) {
               :aria-checked="settings.keepRunningInBackground"
               aria-label="Keep running in the background"
               @click="updateSettings({ keepRunningInBackground: !settings.keepRunningInBackground })"
+            >
+              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Check for updates automatically</h3>
+            <p class="muted tiny">
+              Looks for a new version when Dispatch starts and every few hours. You get a notification when one is
+              ready, and Dispatch asks before installing it.
+            </p>
+          </div>
+          <div class="settings-control">
+            <button
+              class="switch"
+              :class="{ on: settings.autoCheckUpdates }"
+              type="button"
+              role="switch"
+              :aria-checked="settings.autoCheckUpdates"
+              aria-label="Check for updates automatically"
+              @click="updateSettings({ autoCheckUpdates: !settings.autoCheckUpdates })"
             >
               <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
             </button>

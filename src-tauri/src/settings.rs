@@ -40,6 +40,9 @@ pub struct Settings {
     pub keep_running_in_background: bool,
     /// Global shortcut that shows or hides Dispatch from any app. Empty is off.
     pub toggle_hotkey: String,
+    /// Look for a new release at launch and every few hours, and say when one
+    /// is ready to install.
+    pub auto_check_updates: bool,
 }
 
 /// ⌘` on macOS, Ctrl+` elsewhere.
@@ -70,6 +73,7 @@ impl Default for Settings {
             type_below_prompt: true,
             keep_running_in_background: true,
             toggle_hotkey: default_toggle_hotkey(),
+            auto_check_updates: true,
         }
     }
 }
