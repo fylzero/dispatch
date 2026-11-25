@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import TerminalPane from "./TerminalPane.vue";
 import { type PlacedDivider, layout } from "../splits";
-import { MIN_PANE_HEIGHT, MIN_PANE_WIDTH, type TerminalTab, dividerDragging, focusPane, setTabSize } from "../tabs";
+import { MIN_PANE_HEIGHT, MIN_PANE_WIDTH, type TerminalTab, dividerDragging, dropTargetPane, focusPane, setTabSize } from "../tabs";
 
 const props = defineProps<{ tab: TerminalTab; visible: boolean }>();
 
@@ -97,7 +97,8 @@ onBeforeUnmount(() => {
       v-for="pane in panes"
       :key="pane.id"
       class="split-pane"
-      :class="{ focused: tab.activePane === pane.id }"
+      :class="{ focused: tab.activePane === pane.id, 'drop-target': dropTargetPane === pane.id }"
+      :data-pane-id="pane.id"
       :style="paneStyle(pane.rect)"
       @pointerdown="focusPane(tab.id, pane.id)"
       @focusin="focusPane(tab.id, pane.id)"

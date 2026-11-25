@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from "vue";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import TabBar from "./components/TabBar.vue";
 import TerminalTabView from "./components/TerminalTabView.vue";
@@ -18,6 +19,8 @@ import {
   changelogOpen,
   closeActive,
   cycleTab,
+  dragOver,
+  dropPaths,
   focusNeighbor,
   newTerminal,
   openSettings,
@@ -97,6 +100,13 @@ onMounted(async () => {
     await listen("zoom-out", () => zoom(-1)),
     await listen("zoom-reset", () => zoom("reset")),
     await listen("check-for-updates", () => void checkForUpdatesNow()),
+    /* Tauri takes file drops from the webview, so their paths come through here. */
+    await getCurrentWebview().onDragDropEvent(({ payload }) => {
+      if (payload.type === "leave") return dragOver(-1, -1);
+      const { x, y } = payload.position.toLogical(window.devicePixelRatio);
+      if (payload.type === "drop") dropPaths(payload.paths, x, y);
+      else dragOver(x, y);
+    }),
   );
   await loadSettings();
   newTerminal();

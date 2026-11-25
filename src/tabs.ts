@@ -12,6 +12,7 @@ import {
   splitPane,
 } from "./splits";
 import * as api from "./api";
+import { isWindows } from "./platform";
 import { settings } from "./settings";
 import { showToast } from "./toast";
 
@@ -53,6 +54,8 @@ export interface TerminalHandle {
   focus(): void;
   clear(): void;
   selectAll(): void;
+  /** Types text into the shell as if from the keyboard (not a bracketed paste, which zsh highlights). */
+  type(text: string): void;
   /** The folder the pane's shell is in now, when it can be told. */
   cwd(): Promise<string | null>;
 }
@@ -99,6 +102,43 @@ export const changelogOpen = computed(() => changelogTabOpen.value);
 export function registerTerminal(paneId: string, handle: TerminalHandle) {
   handles.set(paneId, handle);
   return () => handles.delete(paneId);
+}
+
+/** The pane a file drag is over, for its outline. */
+export const dropTargetPane = ref<string | null>(null);
+
+/** The visible pane under a point in the window, if any. */
+function paneAt(x: number, y: number) {
+  const element = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-pane-id]");
+  const id = element?.dataset.paneId;
+  return id && handles.has(id) ? id : null;
+}
+
+/**
+ * Backslash-escapes a path so a shell reads it as one word, like Terminal.app.
+ * Windows shells get double quotes instead, and a path with a newline gets single quotes.
+ */
+export function shellEscapePath(path: string) {
+  if (isWindows) return /[\s&()^%!;,'"]/.test(path) ? `"${path}"` : path;
+  if (/[\n\r]/.test(path)) return `'${path.replace(/'/g, `'\\''`)}'`;
+  return path.replace(/[\s!"#$&'()*;<>?[\\\]^`{|}~]/g, "\\$&");
+}
+
+export function dragOver(x: number, y: number) {
+  dropTargetPane.value = activeTab() ? (paneAt(x, y) ?? null) : null;
+}
+
+/** Types dropped files' paths into the pane under the cursor (or the focused one) and focuses it. */
+export function dropPaths(paths: string[], x: number, y: number) {
+  dropTargetPane.value = null;
+  const tab = activeTab();
+  if (!tab || !paths.length) return;
+  const id = paneAt(x, y) ?? tab.activePane;
+  const handle = handles.get(id);
+  if (!handle) return;
+  tab.activePane = id;
+  handle.type(paths.map(shellEscapePath).join(" "));
+  handle.focus();
 }
 
 function activeTab() {

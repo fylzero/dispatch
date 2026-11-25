@@ -398,17 +398,18 @@ function deleteRange(selection: Extract<InputSelection, { kind: "range" }>) {
   return selection.focus < selection.anchor ? back : right.repeat(count) + back;
 }
 
-/** Selects the command typed so far. False when there is nothing typed to select. */
-function selectInput() {
+/** Where the command typed at the prompt starts and how many cells it covers, or nothing when not at a prompt. */
+function typedInput() {
   const buffer = term?.buffer.active;
-  if (!term || !buffer || !promptBindsKeys || !inputStart || buffer.type !== "normal") return false;
+  if (!term || !buffer || !inputStart || buffer.type !== "normal") return;
   const startY = inputStart.marker.line;
-  if (startY < 0) return false;
+  if (startY < 0) return;
   const startX = inputStart.x;
   let endY = startY;
   let endX = startX;
   for (let y = buffer.baseY + term.rows - 1; y >= startY; y--) {
-    const text = buffer.getLine(y)?.translateToString(true) ?? "";
+    /* Trailing spaces can be left over from an edit (zsh draws a tab as spaces and only moves back over them). */
+    const text = (buffer.getLine(y)?.translateToString(true) ?? "").replace(/\s+$/, "");
     const length = y === startY ? Math.max(text.length, startX) : text.length;
     if (length > (y === startY ? startX : 0)) {
       endY = y;
@@ -416,9 +417,17 @@ function selectInput() {
       break;
     }
   }
-  const length = (endY - startY) * term.cols + endX - startX;
-  if (length <= 0) return false;
-  selectCells(startX, startY, length, { kind: "all" });
+  /* Spaces typed at the end are behind the cursor, so the command reaches at least that far. */
+  const toText = (endY - startY) * term.cols + endX - startX;
+  const toCursor = (buffer.baseY + buffer.cursorY - startY) * term.cols + buffer.cursorX - startX;
+  return { startX, startY, length: Math.max(toText, toCursor) };
+}
+
+/** Selects the command typed so far. False when there is nothing typed to select. */
+function selectInput() {
+  const input = promptBindsKeys ? typedInput() : undefined;
+  if (!input || input.length <= 0) return false;
+  selectCells(input.startX, input.startY, input.length, { kind: "all" });
   return true;
 }
 
@@ -907,7 +916,15 @@ function send(data: string) {
 
 /** Select All: just the command at a Dispatch prompt with something typed, otherwise everything. */
 function selectAll() {
-  if (!selectInput()) term?.selectAll();
+  if (selectInput()) return;
+  /* At the prompt with nothing typed there is nothing to select, rather than the whole screen. */
+  const input = typedInput();
+  if (input && input.length <= 0) {
+    inputSelection = null;
+    term?.clearSelection();
+    return;
+  }
+  term?.selectAll();
 }
 
 /**
@@ -1051,6 +1068,7 @@ onMounted(async () => {
       schedulePin();
     },
     selectAll,
+    type: (text) => term?.input(text),
     cwd: () => (sessionId ? api.terminalCwd(sessionId) : Promise.resolve(null)),
   });
 

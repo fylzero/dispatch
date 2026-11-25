@@ -1462,6 +1462,16 @@ button.switch:hover:not(:disabled) {
   transition: opacity 0.12s ease;
 }
 
+/* The pane a dragged file will land in. */
+.split-pane.drop-target::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
 .split-divider {
   position: absolute;
   z-index: 1;
