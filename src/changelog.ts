@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.3.0",
+    date: "November 26, 2026",
+    notes: [
+      "Settings has a new Hotkeys tab, as in Lockshot. Toggle hotkey, the shortcut that shows or hides Dispatch from any app, has moved there from General. Click it to record a new one; Esc cancels and Delete turns it off. Your shortcut is unchanged.",
+    ],
+  },
+  {
     version: "1.2.2",
     date: "November 25, 2026",
     notes: [
@@ -101,7 +108,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: "0.2.0",
     date: "November 23, 2026",
     notes: [
-      "Command+` shows or hides Dispatch from any app (Ctrl+` on Windows and Linux). It opens on the desktop you're on, and hiding it takes you back to the app you were in. Record a different shortcut, or turn it off, under Toggle hotkey in Hotkeys settings.",
+      "Command+` shows or hides Dispatch from any app (Ctrl+` on Windows and Linux). It opens on the desktop you're on, and hiding it takes you back to the app you were in. Record a different shortcut, or turn it off, under Toggle hotkey in General settings.",
       "Dispatch now has a menu bar icon (in the notification area on Windows and Linux) to show or hide it, open a new tab, open Settings, check for updates, or quit.",
       "Command+Q and the close button now hide Dispatch instead of quitting, and your tabs keep running for next time. Closing the last tab hides it too, with a fresh tab ready. Quit from the menu bar icon to really quit, or turn off Keep running in the background in General settings to quit the usual way.",
       "A new prompt in zsh and bash shows the project's Node version, the current folder, the git branch, and how many files have changed, each in its own chip. Your usual shell setup still loads underneath. Turn it off with Dispatch prompt in Terminal settings to get your own prompt back in new tabs.",
