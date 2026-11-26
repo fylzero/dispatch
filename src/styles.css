@@ -1713,7 +1713,12 @@ input.pane-rename:focus {
   border-bottom-color: rgb(var(--pane-rgb) / 0.22);
 }
 
-.split-root.split .split-pane:not(.focused) > .pane-header {
+/*
+ * An unfocused pane fades its name. A bar fades as a whole strip; a notch or plain
+ * name fades only the label, so the row's background stays the pane's own color.
+ */
+.split-root.split .split-pane:not(.focused) > .pane-header.label-bar,
+.split-root.split .split-pane:not(.focused) > .pane-header:not(.label-bar) .pane-label {
   opacity: calc(1 - var(--pane-dim, 0.4) * 0.6);
 }
 

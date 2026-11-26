@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.1",
+    date: "November 25, 2026",
+    notes: [
+      "In a split tab, a pane name shown as a notch or as just the name keeps the pane's own background when the pane isn't focused. Before, the strip behind the name turned see-through and showed a different color from the rest of the pane. A Bar still fades as its own strip.",
+    ],
+  },
+  {
     version: "1.2.0",
     date: "November 25, 2026",
     notes: [

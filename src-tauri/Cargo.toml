@@ -1,6 +1,6 @@
 [package]
 name = "dispatch"
-version = "1.2.0"
+version = "1.2.1"
 description = "A simple, lightweight terminal"
 authors = ["RazorKode LLC"]
 license = "MIT"
