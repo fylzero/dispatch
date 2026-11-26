@@ -1151,6 +1151,8 @@ onMounted(async () => {
   term = new Terminal({
     cursorBlink: s.cursorBlink,
     cursorStyle: s.cursorStyle,
+    // xterm draws a hollow block in unfocused panes by default; keep the chosen shape.
+    cursorInactiveStyle: s.cursorStyle,
     fontFamily: resolveFontStack(s.fontFamily),
     fontSize: s.fontSize,
     lineHeight: s.lineHeight,
@@ -1278,6 +1280,7 @@ watch(
   ([cursorStyle, cursorBlink, scrollback]) => {
     if (!term) return;
     term.options.cursorStyle = cursorStyle;
+    term.options.cursorInactiveStyle = cursorStyle;
     term.options.cursorBlink = cursorBlink;
     term.options.scrollback = scrollback;
   },

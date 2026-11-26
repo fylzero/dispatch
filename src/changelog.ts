@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.2",
+    date: "November 25, 2026",
+    notes: [
+      "The cursor in a pane that isn't focused keeps the shape you chose in Cursor style (bar, block or underline) and stops blinking. Before, it always turned into a hollow block.",
+    ],
+  },
+  {
     version: "1.2.1",
     date: "November 25, 2026",
     notes: [
