@@ -1,6 +1,8 @@
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 export type CursorStyle = "block" | "bar" | "underline";
+export type PaneLabelStyle = "notch" | "bar" | "clear";
+export type PaneLabelAlign = "left" | "center" | "right";
 
 /** Mirrors `Settings` in src-tauri/src/settings.rs. */
 export interface Settings {
@@ -21,6 +23,10 @@ export interface Settings {
   blur: number;
   /** How much unfocused panes in a split tab are dimmed, 0 (off) to 0.8. */
   paneDim: number;
+  /** How a named pane shows its name: a notch hanging from its top edge, a full-width bar, or plain text. */
+  paneLabelStyle: PaneLabelStyle;
+  /** Where along the pane's top edge its name sits. */
+  paneLabelAlign: PaneLabelAlign;
   /** zsh and bash show Dispatch's prompt: Node version, folder, git branch, changed files. New tabs only. */
   dispatchPrompt: boolean;
   /** With the Dispatch prompt, commands are typed on the line below its chips instead of after them. New tabs only. */

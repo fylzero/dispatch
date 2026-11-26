@@ -6,6 +6,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.0",
+    date: "November 25, 2026",
+    notes: [
+      "Pane names have a new look: a notch that hangs from the top edge of the pane, with rounded bottom corners, like the camera notch on a MacBook. It's the new default, sitting against the left edge.",
+      "Choose how pane names look with Pane name style in Appearance: Notch, Bar (the full-width strip from before), or Clear (just the name, with no strip or border).",
+      "Pane name position, also in Appearance, puts the name on the left, in the center, or on the right, for any of the three styles. A notch at an edge rounds only its inside corner; a centered notch rounds both.",
+    ],
+  },
+  {
     version: "1.1.0",
     date: "November 25, 2026",
     notes: [

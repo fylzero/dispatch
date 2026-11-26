@@ -4,6 +4,7 @@ import TerminalPane from "./TerminalPane.vue";
 import { colorRgb } from "../colors";
 import { openContextMenu } from "../contextMenu";
 import { isMac } from "../platform";
+import { settings } from "../settings";
 import { type PlacedDivider, layout } from "../splits";
 import {
   MIN_PANE_HEIGHT,
@@ -194,22 +195,29 @@ onBeforeUnmount(() => {
       @focusin="focusPane(tab.id, pane.id)"
       @contextmenu="onPaneContextMenu($event, pane.id)"
     >
-      <div v-if="paneName(pane.id) || renamingPane === pane.id" class="pane-header" @dblclick="startRename(pane.id)">
-        <input
-          v-if="renamingPane === pane.id"
-          :ref="setRenameInput"
-          v-model="renameDraft"
-          class="pane-rename"
-          type="text"
-          spellcheck="false"
-          autocomplete="off"
-          placeholder="Pane name"
-          aria-label="Pane name"
-          @keydown.stop="onRenameKeydown"
-          @blur="finishRename(true)"
-          @pointerdown.stop
-        />
-        <span v-else class="pane-name" :title="paneName(pane.id)">{{ paneName(pane.id) }}</span>
+      <div
+        v-if="paneName(pane.id) || renamingPane === pane.id"
+        class="pane-header"
+        :class="[`label-${settings.paneLabelStyle}`, `align-${settings.paneLabelAlign}`, { renaming: renamingPane === pane.id }]"
+        @dblclick="startRename(pane.id)"
+      >
+        <div class="pane-label">
+          <input
+            v-if="renamingPane === pane.id"
+            :ref="setRenameInput"
+            v-model="renameDraft"
+            class="pane-rename"
+            type="text"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="Pane name"
+            aria-label="Pane name"
+            @keydown.stop="onRenameKeydown"
+            @blur="finishRename(true)"
+            @pointerdown.stop
+          />
+          <span v-else class="pane-name" :title="paneName(pane.id)">{{ paneName(pane.id) }}</span>
+        </div>
       </div>
       <TerminalPane :id="pane.id" :active="visible && tab.activePane === pane.id" />
     </div>

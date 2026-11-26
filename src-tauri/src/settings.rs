@@ -28,6 +28,10 @@ pub struct Settings {
     pub blur: u32,
     /// How much unfocused panes in a split tab are dimmed, from 0 (off) to 0.8.
     pub pane_dim: f32,
+    /// How a named pane shows its name: "notch", "bar" or "clear".
+    pub pane_label_style: String,
+    /// Where the pane name sits along the top edge: "left", "center" or "right".
+    pub pane_label_align: String,
     /// Replace the zsh or bash prompt with chips for the Node version, folder,
     /// git branch, and changed files. Applies to new tabs.
     pub dispatch_prompt: bool,
@@ -76,6 +80,8 @@ impl Default for Settings {
             opacity: 0.8,
             blur: 8,
             pane_dim: 0.4,
+            pane_label_style: "notch".into(),
+            pane_label_align: "left".into(),
             dispatch_prompt: true,
             type_below_prompt: true,
             keep_running_in_background: true,

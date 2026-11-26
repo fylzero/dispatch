@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS: Settings = {
   opacity: 0.8,
   blur: 8,
   paneDim: 0.4,
+  paneLabelStyle: "notch",
+  paneLabelAlign: "left",
   dispatchPrompt: true,
   typeBelowPrompt: true,
   keepRunningInBackground: true,

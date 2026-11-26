@@ -59,6 +59,17 @@ const blurLabel = computed(() => {
   return isWindows ? "On" : `${Math.round(settings.value.blur)}px`;
 });
 
+const LABEL_STYLES = [
+  { id: "notch", label: "Notch" },
+  { id: "bar", label: "Bar" },
+  { id: "clear", label: "Clear" },
+] as const;
+const LABEL_ALIGNS = [
+  { id: "left", label: "Left" },
+  { id: "center", label: "Center" },
+  { id: "right", label: "Right" },
+] as const;
+
 const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).value);
 </script>
 
@@ -68,7 +79,7 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
       <div class="settings-header">
         <div>
           <div class="brand">Appearance</div>
-          <p class="muted tiny">Theme, font, how see-through the window is, and how much unfocused panes dim.</p>
+          <p class="muted tiny">Theme, font, how see-through the window is, how unfocused panes dim, and how pane names look.</p>
         </div>
       </div>
 
@@ -259,6 +270,42 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
               @click="updateSettings({ paneDim: DEFAULT_SETTINGS.paneDim })"
             >
               Reset
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Pane name style</h3>
+            <p class="muted tiny">A notch hanging from the top edge, a bar across the pane, or just the text.</p>
+          </div>
+          <div class="segmented" role="group" aria-label="Pane name style">
+            <button
+              v-for="option in LABEL_STYLES"
+              :key="option.id"
+              type="button"
+              :class="{ active: settings.paneLabelStyle === option.id }"
+              :aria-pressed="settings.paneLabelStyle === option.id"
+              @click="updateSettings({ paneLabelStyle: option.id })"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Pane name position</h3>
+            <p class="muted tiny">Where a pane's name sits along its top edge.</p>
+          </div>
+          <div class="segmented" role="group" aria-label="Pane name position">
+            <button
+              v-for="option in LABEL_ALIGNS"
+              :key="option.id"
+              type="button"
+              :class="{ active: settings.paneLabelAlign === option.id }"
+              :aria-pressed="settings.paneLabelAlign === option.id"
+              @click="updateSettings({ paneLabelAlign: option.id })"
+            >
+              {{ option.label }}
             </button>
           </div>
         </div>
