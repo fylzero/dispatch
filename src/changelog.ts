@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.3.0",
+    date: "November 26, 2026",
+    notes: [
+      "Settings has a new Hotkeys tab, as in Lockshot. Toggle hotkey, the shortcut that shows or hides Dispatch from any app, has moved there from General. Click it to record a new one; Esc cancels and Delete turns it off. Your shortcut is unchanged.",
+    ],
+  },
+  {
     version: "1.2.2",
     date: "November 25, 2026",
     notes: [
