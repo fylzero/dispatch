@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import * as api from "../../api";
-import HotkeyRecorder from "../../components/HotkeyRecorder.vue";
-import { formatAccelerator } from "../../hotkeys";
 import { settings, updateSettings } from "../../settings";
-import { showToast } from "../../toast";
 
 const SCROLLBACK_MIN = 500;
 const SCROLLBACK_MAX = 100_000;
@@ -27,16 +23,6 @@ function onScrollback(event: Event) {
   input.value = String(clamped);
   updateSettings({ scrollback: clamped });
 }
-
-async function onToggleHotkey(accelerator: string) {
-  try {
-    await api.setToggleHotkey(accelerator);
-    updateSettings({ toggleHotkey: accelerator });
-    showToast(accelerator ? `${formatAccelerator(accelerator)} now shows and hides Dispatch.` : "Toggle hotkey turned off.");
-  } catch (err) {
-    showToast(api.errorMessage(err), "error");
-  }
-}
 </script>
 
 <template>
@@ -45,25 +31,11 @@ async function onToggleHotkey(accelerator: string) {
       <div class="settings-header">
         <div>
           <div class="brand">General</div>
-          <p class="muted tiny">The toggle hotkey, updates, the shell and folder new tabs start in, and how much history they keep.</p>
+          <p class="muted tiny">Background behavior, updates, the shell and folder new tabs start in, and how much history they keep.</p>
         </div>
       </div>
 
       <section class="settings-card">
-        <div class="settings-row">
-          <div class="settings-row-copy">
-            <h3>Toggle hotkey</h3>
-            <p class="muted tiny">Shows or hides Dispatch from any app. Click to record a new one; Delete turns it off.</p>
-          </div>
-          <div class="settings-control">
-            <HotkeyRecorder
-              label="Toggle Dispatch"
-              :value="settings.toggleHotkey"
-              @change="onToggleHotkey"
-              @invalid="(message) => showToast(message, 'error')"
-            />
-          </div>
-        </div>
         <div class="settings-row">
           <div class="settings-row-copy">
             <h3>Keep running in the background</h3>
