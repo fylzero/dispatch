@@ -12,6 +12,7 @@ export const CHANGELOG: ChangelogRelease[] = [
       "Pane names have a new look: a notch that hangs from the top edge of the pane, with rounded bottom corners, like the camera notch on a MacBook. It's the new default, sitting against the left edge.",
       "Choose how pane names look with Pane name style in Appearance: Notch, Bar (the full-width strip from before), or Clear (just the name, with no strip or border).",
       "Pane name position, also in Appearance, puts the name on the left, in the center, or on the right, for any of the three styles. A notch at an edge rounds only its inside corner; a centered notch rounds both.",
+      "On Windows, the Dispatch installer is now signed by RazorKode LLC, so Windows names RazorKode LLC as the publisher instead of an unknown one. For a little while after a new release, SmartScreen may still say Windows protected your PC; click More info, then Run anyway.",
     ],
   },
   {
