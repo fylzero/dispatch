@@ -3,6 +3,7 @@ export type ResolvedTheme = "light" | "dark";
 export type CursorStyle = "block" | "bar" | "underline";
 export type PaneLabelStyle = "notch" | "bar" | "clear";
 export type PaneLabelAlign = "left" | "center" | "right";
+export type SuggestionAcceptKey = "right" | "tab" | "both";
 
 /** Mirrors `Settings` in src-tauri/src/settings.rs. */
 export interface Settings {
@@ -31,6 +32,10 @@ export interface Settings {
   dispatchPrompt: boolean;
   /** With the Dispatch prompt, commands are typed on the line below its chips instead of after them. New tabs only. */
   typeBelowPrompt: boolean;
+  /** As you type, the file, folder, or command Tab would most likely complete shows in grey after the cursor. */
+  suggestions: boolean;
+  /** What fills in a suggestion: Tab (the default), Right arrow (and End, Command+Right), or either. */
+  suggestionAcceptKey: SuggestionAcceptKey;
   /** Close and Command+Q hide Dispatch; its tabs keep running. */
   keepRunningInBackground: boolean;
   /** Global shortcut that shows or hides Dispatch, like "Cmd+Backquote". Empty is off. */

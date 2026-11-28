@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::prompt;
 use crate::settings::SettingsState;
+use crate::suggest::Style;
 
 struct TerminalSession {
     /// The window whose page opened it; its shells end when it closes.
@@ -18,6 +19,8 @@ struct TerminalSession {
     writer: Mutex<Box<dyn Write + Send>>,
     master: Box<dyn MasterPty + Send>,
     child: Mutex<Box<dyn portable_pty::Child + Send + Sync>>,
+    /// How the shell quotes, for suggestions.
+    style: Style,
 }
 
 impl Drop for TerminalSession {
@@ -159,7 +162,7 @@ pub fn open_terminal(
         .filter(|value| !value.is_empty())
         .unwrap_or_else(default_shell);
     let mut cmd = CommandBuilder::new(&shell);
-    let (dispatch_prompt, type_below_prompt, start_directory) = app
+    let (dispatch_prompt, type_below_prompt, suggestions, start_directory) = app
         .state::<SettingsState>()
         .0
         .lock()
@@ -167,11 +170,12 @@ pub fn open_terminal(
             (
                 settings.dispatch_prompt,
                 settings.type_below_prompt,
+                settings.suggestions,
                 settings.start_directory.clone(),
             )
         })
-        .unwrap_or_else(|_| (true, true, String::new()));
-    prompt::configure(&app, &mut cmd, &shell, dispatch_prompt);
+        .unwrap_or_else(|_| (true, true, true, String::new()));
+    prompt::configure(&app, &mut cmd, &shell, dispatch_prompt, suggestions);
     /* Read once by the Dispatch prompt scripts, which then unset it. */
     if dispatch_prompt && !type_below_prompt {
         cmd.env("DISPATCH_PROMPT_INLINE", "1");
@@ -214,6 +218,7 @@ pub fn open_terminal(
             writer: Mutex::new(writer),
             master: pair.master,
             child: Mutex::new(child),
+            style: Style::for_shell(&shell),
         },
     );
 
@@ -297,9 +302,17 @@ pub fn close_window_terminals(app: &AppHandle, window: &str) {
     drop(closed);
 }
 
+/// How terminal `id`'s shell quotes, and its process id, for suggestions.
+pub fn session_shell(state: &TerminalState, id: &str) -> Option<(Style, Option<u32>)> {
+    let sessions = lock_sessions(state).ok()?;
+    let session = sessions.get(id)?;
+    let pid = session.child.lock().ok()?.process_id();
+    Some((session.style, pid))
+}
+
 /// The folder a process is in, read from the system.
 #[cfg(target_os = "macos")]
-fn process_cwd(pid: u32) -> Option<PathBuf> {
+pub fn process_cwd(pid: u32) -> Option<PathBuf> {
     use std::ffi::CStr;
     use std::mem::{size_of, MaybeUninit};
     let mut info = MaybeUninit::<libc::proc_vnodepathinfo>::zeroed();
@@ -335,12 +348,12 @@ fn process_cwd(pid: u32) -> Option<PathBuf> {
 }
 
 #[cfg(target_os = "linux")]
-fn process_cwd(pid: u32) -> Option<PathBuf> {
+pub fn process_cwd(pid: u32) -> Option<PathBuf> {
     std::fs::read_link(format!("/proc/{pid}/cwd")).ok()
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-fn process_cwd(_pid: u32) -> Option<PathBuf> {
+pub fn process_cwd(_pid: u32) -> Option<PathBuf> {
     None
 }
 

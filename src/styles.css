@@ -1194,6 +1194,18 @@ button.tab-new:hover:not(:disabled) {
   pointer-events: none;
 }
 
+/* A suggestion after the cursor (suggestions.ts): one span per cell, in the theme's bright black. */
+.terminal-host .suggestion {
+  display: flex;
+  pointer-events: none;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.terminal-host .suggestion span {
+  flex: 0 0 var(--cell, 8px);
+}
+
 .terminal-host .prompt-chip::before {
   content: "";
   position: absolute;

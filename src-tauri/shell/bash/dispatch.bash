@@ -21,13 +21,15 @@ fi
 # command on a new line, CSI 127;9u clears the line being typed (Select All,
 # then Backspace), and Option+Left/Right (CSI 1;3D and 1;3C) move by word. bash only says so from 4.4 on, since before that
 # Dispatch can't tell when a command is running. "input" marks where the
-# command starts, after the chips.
+# command starts, after the chips. "cwd;<folder>" and "path;<PATH>" tell
+# Dispatch where to look for what it suggests as you type.
 __dispatch_node_key=""
 __dispatch_node_ver=""
 # What the prompt shows, read through promptvars so a branch name is never run as code.
 __dispatch_ver=""
 __dispatch_branch=""
 __dispatch_code=0
+__dispatch_path=""
 # Dispatch sets this when commands are typed right after the chips instead of on the line below.
 __dispatch_inline=${DISPATCH_PROMPT_INLINE:-0}
 unset DISPATCH_PROMPT_INLINE
@@ -40,6 +42,15 @@ __dispatch_keep() {
 
 __dispatch_prompt() {
   printf '\e]6973;done;%s\a' "$__dispatch_code"
+  # The folder, and PATH when it changes, for Dispatch's suggestions. Git Bash
+  # on Windows reports the Windows path, which is what Dispatch can read.
+  local here=$PWD
+  case $OSTYPE in msys* | cygwin*) here=$(pwd -W 2>/dev/null || printf '%s' "$PWD") ;; esac
+  printf '\e]6973;cwd;%s\a' "$here"
+  if [ "$PATH" != "$__dispatch_path" ]; then
+    __dispatch_path=$PATH
+    printf '\e]6973;path;%s\a' "$PATH"
+  fi
   local dir=$PWD node_root="" git_root="" ver="" branch="" changes=""
   while true; do
     if [ -z "$node_root" ] && { [ -e "$dir/package.json" ] || [ -e "$dir/.nvmrc" ] || [ -e "$dir/.node-version" ]; }; then

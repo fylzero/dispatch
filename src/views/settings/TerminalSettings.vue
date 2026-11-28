@@ -1,12 +1,24 @@
 <script setup lang="ts">
+import { isMac } from "../../platform";
 import { settings, updateSettings } from "../../settings";
-import type { CursorStyle } from "../../types";
+import type { CursorStyle, SuggestionAcceptKey } from "../../types";
 
 const CURSOR_OPTIONS: { id: CursorStyle; label: string }[] = [
   { id: "block", label: "Block" },
   { id: "bar", label: "Bar" },
   { id: "underline", label: "Underline" },
 ];
+
+const ACCEPT_OPTIONS: { id: SuggestionAcceptKey; label: string }[] = [
+  { id: "tab", label: "Tab" },
+  { id: "right", label: "Right arrow" },
+  { id: "both", label: "Either" },
+];
+
+/* Command+Right sends Ctrl+E (end of line), so it fills in a suggestion like End. */
+const acceptNote = isMac
+  ? "Right arrow also covers End and Command+Right, and Option+Right takes one word."
+  : "Right arrow also covers End, and Ctrl+Right takes one word.";
 </script>
 
 <template>
@@ -99,6 +111,50 @@ const CURSOR_OPTIONS: { id: CursorStyle; label: string }[] = [
               @click="updateSettings({ typeBelowPrompt: !settings.typeBelowPrompt })"
             >
               <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
+            </button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Suggestions</h3>
+            <p class="muted tiny">
+              As you type, shows in grey the file or folder you are typing, or a command when nothing matches. Enter runs only
+              what you typed. Works in zsh and bash while the Dispatch prompt is on, and in PowerShell and cmd, where
+              turning it on or off applies to new tabs.
+            </p>
+          </div>
+          <div class="settings-control">
+            <button
+              class="switch"
+              :class="{ on: settings.suggestions }"
+              type="button"
+              role="switch"
+              :aria-checked="settings.suggestions"
+              aria-label="Suggestions"
+              @click="updateSettings({ suggestions: !settings.suggestions })"
+            >
+              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
+            </button>
+          </div>
+        </div>
+        <div class="settings-row" :class="{ disabled: !settings.suggestions }">
+          <div class="settings-row-copy">
+            <h3>Accept suggestion with</h3>
+            <p class="muted tiny">
+              With nothing suggested, Tab completes as usual. {{ acceptNote }} Esc hides it.
+            </p>
+          </div>
+          <div class="segmented" role="group" aria-label="Accept suggestion with">
+            <button
+              v-for="option in ACCEPT_OPTIONS"
+              :key="option.id"
+              type="button"
+              :class="{ active: settings.suggestionAcceptKey === option.id }"
+              :aria-pressed="settings.suggestionAcceptKey === option.id"
+              :disabled="!settings.suggestions"
+              @click="updateSettings({ suggestionAcceptKey: option.id })"
+            >
+              {{ option.label }}
             </button>
           </div>
         </div>

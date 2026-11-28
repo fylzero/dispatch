@@ -23,6 +23,8 @@ export const DEFAULT_SETTINGS: Settings = {
   paneLabelAlign: "left",
   dispatchPrompt: true,
   typeBelowPrompt: true,
+  suggestions: true,
+  suggestionAcceptKey: "tab",
   keepRunningInBackground: true,
   toggleHotkey: isMac ? "Cmd+Backquote" : "Ctrl+Backquote",
   autoCheckUpdates: true,

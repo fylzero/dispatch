@@ -11,6 +11,7 @@ import * as api from "../api";
 import { fontFaceName, resolveFontStack } from "../fonts";
 import { isMac, isWindows } from "../platform";
 import { settings } from "../settings";
+import { createSuggestions, type Suggestions } from "../suggestions";
 import { closePane, dividerDragging, registerTerminal, setTerminalTitle, takeStartDir } from "../tabs";
 import { resolvedTheme } from "../theme";
 import type { ResolvedTheme } from "../types";
@@ -83,6 +84,7 @@ const host = ref<HTMLDivElement | null>(null);
 let term: Terminal | null = null;
 let fit: FitAddon | null = null;
 let sessionId = "";
+let suggestions: Suggestions | null = null;
 let startedAt = 0;
 let resizeObserver: ResizeObserver | null = null;
 let unregister: (() => void) | undefined;
@@ -851,6 +853,15 @@ function onEraseDisplay(params: (number | number[])[]) {
 function onPromptMark(data: string) {
   const buffer = term?.buffer.active;
   if (!term || !buffer || buffer.type !== "normal") return true;
+  /* The folder and PATH can hold semicolons, so they are read whole. */
+  if (data.startsWith("cwd;")) {
+    suggestions?.setCwd(data.slice(4));
+    return true;
+  }
+  if (data.startsWith("path;")) {
+    suggestions?.setPath(data.slice(5));
+    return true;
+  }
   const [mark, kind] = data.split(";");
   const current = blocks[blocks.length - 1];
   if (mark === "prompt") {
@@ -858,9 +869,14 @@ function onPromptMark(data: string) {
     addBlock();
   } else if (mark === "input") {
     setInputStart(buffer.cursorX);
+    suggestions?.start(buffer.cursorX);
+  } else if (mark === "line") {
+    /* PowerShell and cmd: where the command starts, for suggestions only. */
+    suggestions?.start(buffer.cursorX);
   } else if (mark === "exec") {
     promptBindsKeys = false;
     forgetInput();
+    suggestions?.stop();
     if (current) startSnapshot(current);
   } else if (mark === "done") {
     if (current) finishSnapshot(current, kind ?? "");
@@ -1064,6 +1080,7 @@ function keepsInputSelected(event: KeyboardEvent) {
  * the command the pane selected (see SHIFT_ENTER).
  */
 function onKey(event: KeyboardEvent) {
+  if (suggestions?.onKey(event) === false) return false;
   const atPrompt = promptBindsKeys && term?.buffer.active.type === "normal";
   const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
   if (event.key === "Enter" && event.shiftKey && plain && atPrompt) {
@@ -1191,7 +1208,12 @@ onMounted(async () => {
     syncCursorVisibility();
   });
   term.parser.registerCsiHandler({ final: "J" }, onEraseDisplay);
-  term.onRender(schedulePin);
+  suggestions = createSuggestions(term, () => sessionId || undefined, send);
+  term.onRender(() => {
+    schedulePin();
+    suggestions?.schedule();
+  });
+  term.onCursorMove(() => suggestions?.schedule());
   term.onScroll(schedulePin);
   term.onResize(() => {
     markSnapshotsStale();
@@ -1231,6 +1253,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  suggestions?.dispose();
+  suggestions = null;
   unregister?.();
   resizeObserver?.disconnect();
   host.value?.removeEventListener("mousedown", onRightMouseDown, true);

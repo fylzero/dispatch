@@ -49,4 +49,7 @@ export const resizeTerminal = (id: string, cols: number, rows: number) =>
   invoke<void>("resize_terminal", { id, cols, rows });
 /** The folder a terminal's shell is in now; null when it can't be told. */
 export const terminalCwd = (id: string) => invoke<string | null>("terminal_cwd", { id });
+/** What to show after the command line `line` as it is typed (see suggest.rs), or null. */
+export const suggestCompletion = (id: string, line: string, cwd: string | null, path: string | null) =>
+  invoke<string | null>("suggest_completion", { id, line, cwd, path });
 export const closeTerminal = (id: string) => invoke<void>("close_terminal", { id });

@@ -5,6 +5,7 @@ mod menu;
 mod prompt;
 mod pty;
 mod settings;
+mod suggest;
 mod tray;
 mod windows;
 
@@ -96,6 +97,7 @@ pub fn run() {
             pty::resize_terminal,
             pty::close_terminal,
             pty::terminal_cwd,
+            suggest::suggest_completion,
             hotkey::set_toggle_hotkey,
             hotkey::pause_toggle_hotkey,
             windows::close_window,

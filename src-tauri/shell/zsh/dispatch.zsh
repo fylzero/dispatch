@@ -7,13 +7,15 @@
 # Shift+Enter, sent as CSI 13;2u, adds a line instead of running the command,
 # CSI 127;9u clears the whole command (Select All, then Backspace), and
 # Option+Left/Right (CSI 1;3D and 1;3C) move by word, stopping at punctuation.
-# "input" marks where the command starts, after the chips.
+# "input" marks where the command starts, after the chips. "cwd;<folder>" and
+# "path;<PATH>" tell Dispatch where to look for what it suggests as you type.
 
 typeset -g __dispatch_node_key="" __dispatch_node_ver=""
 # What the prompt shows, read through prompt_subst so a branch or folder name is
 # never run as code; % is doubled so it isn't read as a prompt escape either.
 typeset -g __dispatch_ver="" __dispatch_branch=""
 typeset -gi __dispatch_ran=0
+typeset -g __dispatch_path=""
 # Dispatch sets this when commands are typed right after the chips instead of on the line below.
 typeset -gi __dispatch_inline=${DISPATCH_PROMPT_INLINE:-0}
 unset DISPATCH_PROMPT_INLINE
@@ -65,6 +67,12 @@ __dispatch_prompt() {
   if (( __dispatch_ran )); then
     __dispatch_ran=0
     print -n $'\e]6973;done;'"$code"$'\a'
+  fi
+  # The folder, and PATH when it changes, for Dispatch's suggestions.
+  print -rn -- $'\e]6973;cwd;'"$PWD"$'\a'
+  if [[ $PATH != $__dispatch_path ]]; then
+    __dispatch_path=$PATH
+    print -rn -- $'\e]6973;path;'"$PATH"$'\a'
   fi
   local dir=$PWD node_root="" git_root="" ver="" branch="" changes=""
   while true; do

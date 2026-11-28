@@ -38,6 +38,13 @@ pub struct Settings {
     /// With the Dispatch prompt, commands are typed on the line below the
     /// chips instead of right after them. Applies to new tabs.
     pub type_below_prompt: bool,
+    /// As you type, the file, folder, or command Tab would most likely
+    /// complete shows in grey after the cursor. PowerShell and cmd get the
+    /// marks it needs from new tabs on; zsh and bash from the Dispatch prompt.
+    pub suggestions: bool,
+    /// The key that fills in a suggestion: "tab" (the default), "right"
+    /// (Right arrow, End and Command+Right), or "both".
+    pub suggestion_accept_key: String,
     /// Closing the window or quitting with ⌘Q hides Dispatch and keeps its
     /// tabs running, so the toggle hotkey can bring them straight back.
     /// Quit from the menu bar icon still quits.
@@ -84,6 +91,8 @@ impl Default for Settings {
             pane_label_align: "left".into(),
             dispatch_prompt: true,
             type_below_prompt: true,
+            suggestions: true,
+            suggestion_accept_key: "tab".into(),
             keep_running_in_background: true,
             toggle_hotkey: default_toggle_hotkey(),
             auto_check_updates: true,

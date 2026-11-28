@@ -16,17 +16,25 @@ const ZSH_FILES: &[(&str, &str)] = &[
     ("dispatch.zsh", include_str!("../shell/zsh/dispatch.zsh")),
 ];
 const BASH_INIT: &str = include_str!("../shell/bash/dispatch.bash");
+const POWERSHELL_INIT: &str = include_str!("../shell/powershell/dispatch.ps1");
 
+/* Named after the shells, PowerShell included. */
+#[allow(clippy::enum_variant_names)]
 enum Shell {
     Zsh,
     Bash,
+    PowerShell,
+    Cmd,
 }
 
 fn shell_kind(shell: &str) -> Option<Shell> {
-    let name = Path::new(shell).file_name()?.to_str()?;
+    /* By hand, since a Windows path's backslashes are no separator to Path elsewhere. */
+    let name = shell.trim().rsplit(['/', '\\']).next()?.to_ascii_lowercase();
     match name.trim_end_matches(".exe") {
         "zsh" => Some(Shell::Zsh),
         "bash" => Some(Shell::Bash),
+        "pwsh" | "powershell" => Some(Shell::PowerShell),
+        "cmd" => Some(Shell::Cmd),
         _ => None,
     }
 }
@@ -49,8 +57,33 @@ fn integration_dir(app: &AppHandle) -> Option<PathBuf> {
 }
 
 /// Adds the shell's arguments to `cmd`, with the Dispatch prompt when `enabled`
-/// and the shell is one it supports. Other shells start as plain login shells.
-pub fn configure(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str, enabled: bool) {
+/// and the shell is zsh or bash. Other shells start as plain login shells,
+/// except that with `suggestions` PowerShell and cmd mark their prompt so
+/// Dispatch can suggest as you type (zsh and bash get that from the prompt).
+pub fn configure(
+    app: &AppHandle,
+    cmd: &mut CommandBuilder,
+    shell: &str,
+    enabled: bool,
+    suggestions: bool,
+) {
+    if suggestions {
+        match shell_kind(shell) {
+            Some(Shell::PowerShell) => {
+                /* Encoded, so it needs no quoting and no execution policy allows a script file. */
+                cmd.arg("-NoExit");
+                cmd.arg("-EncodedCommand");
+                cmd.arg(encode_command(POWERSHELL_INIT));
+                return;
+            }
+            Some(Shell::Cmd) => {
+                let own = std::env::var("PROMPT").unwrap_or_else(|_| "$P$G".into());
+                cmd.env("PROMPT", cmd_prompt(&own));
+                return;
+            }
+            _ => {}
+        }
+    }
     let applied = enabled && apply(app, cmd, shell).is_some();
     #[cfg(unix)]
     if !applied {
@@ -81,8 +114,32 @@ fn apply(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str) -> Option<()> {
             cmd.arg(root.join("dispatch.bash"));
             cmd.arg("-i");
         }
+        Shell::PowerShell | Shell::Cmd => return None,
     }
     Some(())
+}
+
+/// cmd's prompt with Dispatch's marks around it: the folder before, and where the command starts after.
+fn cmd_prompt(own: &str) -> String {
+    format!("$E]6973;cwd;$P$E\\{own}$E]6973;line$E\\")
+}
+
+/// A script as PowerShell's -EncodedCommand takes it: UTF-16LE in base64.
+fn encode_command(script: &str) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let bytes: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk.iter().enumerate().fold(0u32, |n, (i, byte)| n | (u32::from(*byte) << (16 - 8 * i)));
+        for i in 0..4 {
+            if i <= chunk.len() {
+                out.push(ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char);
+            } else {
+                out.push('=');
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -97,6 +154,22 @@ mod tests {
             Some(Shell::Bash)
         ));
         assert!(shell_kind("/opt/homebrew/bin/fish").is_none());
-        assert!(shell_kind("pwsh.exe").is_none());
+        assert!(matches!(shell_kind("pwsh.exe"), Some(Shell::PowerShell)));
+        assert!(matches!(
+            shell_kind("C:\\Windows\\System32\\cmd.exe"),
+            Some(Shell::Cmd)
+        ));
+    }
+
+    #[test]
+    fn encodes_powershell_commands() {
+        /* "dir" in UTF-16LE is 64 00 69 00 72 00. */
+        assert_eq!(encode_command("dir"), "ZABpAHIA");
+        assert_eq!(encode_command("ab"), "YQBiAA==");
+    }
+
+    #[test]
+    fn marks_the_cmd_prompt() {
+        assert_eq!(cmd_prompt("$P$G"), "$E]6973;cwd;$P$E\\$P$G$E]6973;line$E\\");
     }
 }

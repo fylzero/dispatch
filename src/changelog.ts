@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.5.0",
+    date: "November 27, 2026",
+    notes: [
+      "Suggestions: as you type, the file or folder you are typing shows in grey after the cursor (sr shows src/, cat REA shows README.md), or a command when nothing matches (gi shows git). Tab fills it in, Option+Right takes one word or one folder of a path, Esc hides it, and Enter runs only what you typed. With nothing suggested, Tab completes as usual. Settings › Terminal can turn it off or switch the key to Right arrow (with End and Command+Right), or either one. It works in zsh and bash while the Dispatch prompt is on, and in PowerShell and cmd, and stays out of the way of shell plugins that suggest on their own, like zsh-autosuggestions.",
+    ],
+  },
+  {
     version: "1.4.0",
     date: "November 27, 2026",
     notes: [
