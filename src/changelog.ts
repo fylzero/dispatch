@@ -12,6 +12,12 @@ export const CHANGELOG: ChangelogRelease[] = [
       "Suggestions: as you type, the file or folder you are typing shows in grey after the cursor (sr shows src/, cat REA shows README.md), or a command when nothing matches (gi shows git). Tab or Right arrow (with End and Command+Right) fills it in, Option+Right takes one word or one folder of a path, Esc hides it, and Enter runs only what you typed. With nothing suggested, Tab completes as usual. Settings › Terminal can turn it off or limit it to Tab or to Right arrow. It works in zsh and bash while the Dispatch prompt is on, and in PowerShell and cmd, and stays out of the way of shell plugins that suggest on their own, like zsh-autosuggestions.",
       "Aliases: Settings › Aliases holds short names for commands (gs runs git status), in named groups you can drag to reorder, or move aliases between. Dispatch defines them in every new zsh, bash, PowerShell, and cmd tab after your own startup files, so they're real aliases that take arguments and show in your history, and one here replaces an alias of the same name. They live in Dispatch's settings, so they come along with a settings export, and suggestions offer them as you type. Your own aliases, like those in ~/.zshrc, keep working as before.",
       "When there are more tabs than fit, the tab bar no longer shows a scrollbar. An edge fades out while more tabs are past it, a mouse wheel scrolls the tabs sideways as a trackpad does, and the tab you switch to scrolls into view.",
+    ],
+  },
+  {
+    version: "1.4.0",
+    date: "November 27, 2026",
+    notes: [
       "Anything you type in parentheses when naming a tab or pane shows as a badge once you save the name, so \"api (staging)\" reads as api with a staging badge beside it. While you're renaming, the field shows the name just as you typed it. Titles the shell sets on its own, like \"vim (main)\", stay plain text.",
       "Right-clicking the folder or branch in the last command's prompt, kept at the top of the pane as you scroll, offers Copy Path or Copy Branch Name again, the same as in the prompt itself.",
       "With text selected in a pane, its right-click menu starts with Copy.",
