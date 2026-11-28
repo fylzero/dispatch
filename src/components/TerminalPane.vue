@@ -134,7 +134,7 @@ function renderChip(chip: PromptChip, el: HTMLElement) {
 }
 
 /** The chip at a point in the pane, in the screen or in the snapshot stuck to its top. */
-function chipAt(clientX: number, clientY: number, target: EventTarget | null) {
+function chipAt(clientX: number, clientY: number) {
   const screen = term?.element?.querySelector<HTMLElement>(".xterm-screen");
   const buffer = term?.buffer.active;
   if (!term || !screen || !buffer || buffer.type !== "normal") return null;
@@ -143,9 +143,11 @@ function chipAt(clientX: number, clientY: number, target: EventTarget | null) {
   const cellHeight = box.height / term.rows;
   const col = Math.floor((clientX - box.left) / cellWidth);
   let line: number;
-  const stuck = sticky && !sticky.el.hidden && sticky.block && (target as Element | null)?.closest?.(".snapshot-sticky");
-  if (stuck && sticky?.block) {
-    line = sticky.block.marker.line + Math.floor((clientY - sticky.el.getBoundingClientRect().top) / cellHeight);
+  /* The stuck copy lets clicks through (pointer-events: none), so go by where it sits, not the event's target. */
+  const stuckBox = sticky && !sticky.el.hidden && sticky.block ? sticky.el.getBoundingClientRect() : null;
+  const stuck = stuckBox && clientY >= stuckBox.top && clientY < stuckBox.bottom;
+  if (stuck && stuckBox && sticky?.block) {
+    line = sticky.block.marker.line + Math.floor((clientY - stuckBox.top) / cellHeight);
   } else {
     line = buffer.viewportY + Math.floor((clientY - box.top) / cellHeight);
   }
@@ -170,7 +172,7 @@ async function chipValue(chip: PromptChip) {
 }
 
 function copyableChipAt(event: MouseEvent) {
-  const chip = chipAt(event.clientX, event.clientY, event.target);
+  const chip = chipAt(event.clientX, event.clientY);
   return chip && (chip.kind === "cwd" || chip.kind === "branch") ? chip : null;
 }
 
