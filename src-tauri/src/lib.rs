@@ -1,3 +1,4 @@
+mod aliases;
 mod blur;
 mod corners;
 mod hotkey;

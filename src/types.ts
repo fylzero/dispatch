@@ -34,8 +34,10 @@ export interface Settings {
   typeBelowPrompt: boolean;
   /** As you type, the file, folder, or command Tab would most likely complete shows in grey after the cursor. */
   suggestions: boolean;
-  /** What fills in a suggestion: Tab (the default), Right arrow (and End, Command+Right), or either. */
+  /** What fills in a suggestion: Tab, Right arrow (and End, Command+Right), or both (the default). */
   suggestionAcceptKey: SuggestionAcceptKey;
+  /** Short names for commands in named groups, defined in every new tab after the shell's own startup files. */
+  aliasGroups: AliasGroup[];
   /** Close and Command+Q hide Dispatch; its tabs keep running. */
   keepRunningInBackground: boolean;
   /** Global shortcut that shows or hides Dispatch, like "Cmd+Backquote". Empty is off. */
@@ -46,6 +48,18 @@ export interface Settings {
   layouts: SavedLayout[];
   /** The saved layout the first window opens with when Dispatch starts; blank opens one plain tab. */
   defaultLayout: string;
+}
+
+/** An alias from Settings › Terminal: typing `name` runs `command`, with anything typed after it added on. */
+export interface Alias {
+  name: string;
+  command: string;
+}
+
+/** Aliases kept together under a name in Settings; the shells see one list, group after group. */
+export interface AliasGroup {
+  name: string;
+  aliases: Alias[];
 }
 
 /** One pane in a saved layout: its share of its split, its name and color, and the folder its shell was in. */

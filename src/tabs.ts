@@ -23,7 +23,7 @@ import type { LayoutTemplateNode, LayoutTemplateTab, SavedLayout } from "./types
 export const SETTINGS_TAB_ID = "settings";
 export const CHANGELOG_TAB_ID = "changelog";
 
-export const SETTINGS_SECTIONS = ["general", "appearance", "terminal", "hotkeys", "json"] as const;
+export const SETTINGS_SECTIONS = ["general", "appearance", "terminal", "aliases", "hotkeys", "json"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /** Panes one split can hold side by side (⌘D). */

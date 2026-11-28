@@ -5,6 +5,8 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
+use crate::aliases::AliasGroup;
+
 const SETTINGS_FILE: &str = "settings.json";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -42,9 +44,12 @@ pub struct Settings {
     /// complete shows in grey after the cursor. PowerShell and cmd get the
     /// marks it needs from new tabs on; zsh and bash from the Dispatch prompt.
     pub suggestions: bool,
-    /// The key that fills in a suggestion: "tab" (the default), "right"
-    /// (Right arrow, End and Command+Right), or "both".
+    /// The key that fills in a suggestion: "tab", "right" (Right arrow, End
+    /// and Command+Right), or "both" (the default).
     pub suggestion_accept_key: String,
+    /// Short names for commands, in named groups, defined in every new tab
+    /// after the user's own startup files (see aliases.rs).
+    pub alias_groups: Vec<AliasGroup>,
     /// Closing the window or quitting with ⌘Q hides Dispatch and keeps its
     /// tabs running, so the toggle hotkey can bring them straight back.
     /// Quit from the menu bar icon still quits.
@@ -92,7 +97,8 @@ impl Default for Settings {
             dispatch_prompt: true,
             type_below_prompt: true,
             suggestions: true,
-            suggestion_accept_key: "tab".into(),
+            suggestion_accept_key: "both".into(),
+            alias_groups: Vec::new(),
             keep_running_in_background: true,
             toggle_hotkey: default_toggle_hotkey(),
             auto_check_updates: true,

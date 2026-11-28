@@ -41,7 +41,8 @@ It runs your own login shell (zsh, bash, fish, PowerShell, or whatever you use) 
 - **Themes**: Light, dark, or follow the system
 - **Fonts and cursor**: Pick the font, size, line height, and cursor shape
 - **Your shell**: Uses your login shell, or any shell you name in Settings
-- **Suggestions**: As you type, the file or folder you are typing shows in grey (`sr` shows `src/`), or a command when nothing matches (`gi` shows `git`). Tab fills it in (or Right arrow, or either, in Settings), Option+Right (Ctrl+Right on Windows and Linux) takes one word or folder, and Enter runs only what you typed. Works in zsh and bash with the Dispatch prompt, and in PowerShell and cmd
+- **Suggestions**: As you type, the file or folder you are typing shows in grey (`sr` shows `src/`), or a command when nothing matches (`gi` shows `git`). Tab or Right arrow fills it in (or only one of them, in Settings), Option+Right (Ctrl+Right on Windows and Linux) takes one word or folder, and Enter runs only what you typed. Works in zsh and bash with the Dispatch prompt, and in PowerShell and cmd
+- **Aliases**: Short names for commands in Settings › Aliases (`gs` runs `git status`), kept in named groups you can drag to reorder. Dispatch defines them in every new zsh, bash, PowerShell, and cmd tab after your own startup files, so they're real aliases with your history and arguments, and they travel with your settings export. They show up in suggestions too.
 - **Clickable links**: ⌘-click (Ctrl-click on Windows and Linux) a URL to open it
 - **Toggle from anywhere**: ⌘\` (Ctrl+\` on Windows and Linux) shows or hides Dispatch from any app. Change it, or turn it off, in Settings
 - **Lives in the menu bar**: Closing the window or quitting hides Dispatch with your tabs still running, until you quit from the menu bar icon. Turn off *Keep running in the background* in Settings to quit the usual way

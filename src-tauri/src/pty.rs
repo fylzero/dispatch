@@ -21,6 +21,8 @@ struct TerminalSession {
     child: Mutex<Box<dyn portable_pty::Child + Send + Sync>>,
     /// How the shell quotes, for suggestions.
     style: Style,
+    /// The aliases it was started with, suggested along with commands.
+    aliases: Arc<[String]>,
 }
 
 impl Drop for TerminalSession {
@@ -162,7 +164,7 @@ pub fn open_terminal(
         .filter(|value| !value.is_empty())
         .unwrap_or_else(default_shell);
     let mut cmd = CommandBuilder::new(&shell);
-    let (dispatch_prompt, type_below_prompt, suggestions, start_directory) = app
+    let (dispatch_prompt, type_below_prompt, suggestions, start_directory, aliases) = app
         .state::<SettingsState>()
         .0
         .lock()
@@ -172,10 +174,11 @@ pub fn open_terminal(
                 settings.type_below_prompt,
                 settings.suggestions,
                 settings.start_directory.clone(),
+                crate::aliases::flatten(&settings.alias_groups),
             )
         })
-        .unwrap_or_else(|_| (true, true, true, String::new()));
-    prompt::configure(&app, &mut cmd, &shell, dispatch_prompt, suggestions);
+        .unwrap_or_else(|_| (true, true, true, String::new(), Vec::new()));
+    prompt::configure(&app, &mut cmd, &shell, dispatch_prompt, suggestions, &aliases);
     /* Read once by the Dispatch prompt scripts, which then unset it. */
     if dispatch_prompt && !type_below_prompt {
         cmd.env("DISPATCH_PROMPT_INLINE", "1");
@@ -219,6 +222,7 @@ pub fn open_terminal(
             master: pair.master,
             child: Mutex::new(child),
             style: Style::for_shell(&shell),
+            aliases: crate::aliases::names(&aliases).into(),
         },
     );
 
@@ -302,12 +306,12 @@ pub fn close_window_terminals(app: &AppHandle, window: &str) {
     drop(closed);
 }
 
-/// How terminal `id`'s shell quotes, and its process id, for suggestions.
-pub fn session_shell(state: &TerminalState, id: &str) -> Option<(Style, Option<u32>)> {
+/// How terminal `id`'s shell quotes, its process id, and its aliases, for suggestions.
+pub fn session_shell(state: &TerminalState, id: &str) -> Option<(Style, Option<u32>, Arc<[String]>)> {
     let sessions = lock_sessions(state).ok()?;
     let session = sessions.get(id)?;
     let pid = session.child.lock().ok()?.process_id();
-    Some((session.style, pid))
+    Some((session.style, pid, session.aliases.clone()))
 }
 
 /// The folder a process is in, read from the system.

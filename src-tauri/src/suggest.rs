@@ -371,7 +371,7 @@ fn program_name(entry: &std::fs::DirEntry) -> Option<String> {
 
 /// The rest of the likeliest command for `typed`: the shortest name that
 /// starts with it, so `gi` is git rather than gifsicle.
-fn complete_command(typed: &str, style: Style, path_var: &str) -> Option<String> {
+fn complete_command(typed: &str, style: Style, path_var: &str, aliases: &[String]) -> Option<String> {
     let ignore_case = style.commands_ignore_case();
     let builtins: &[&str] = match style {
         Style::Posix => POSIX_BUILTINS,
@@ -383,6 +383,7 @@ fn complete_command(typed: &str, style: Style, path_var: &str) -> Option<String>
         .iter()
         .copied()
         .chain(programs.iter().map(String::as_str))
+        .chain(aliases.iter().map(String::as_str))
         .filter(|name| extends(name, typed, ignore_case))
         .min_by(|a, b| {
             a.chars()
@@ -468,6 +469,7 @@ fn suggest(
     cwd: Option<&Path>,
     home: Option<&Path>,
     path_var: &str,
+    aliases: &[String],
 ) -> Option<String> {
     let word = last_word(line, style)?;
     /* Files and folders where you are, for any word; cd and the like want folders only. */
@@ -482,7 +484,7 @@ fn suggest(
         && !word.text.starts_with(['.', '~']);
     let rest = match file {
         Some(rest) => rest,
-        None if word.at_command && plain_name => complete_command(&word.text, style, path_var)?,
+        None if word.at_command && plain_name => complete_command(&word.text, style, path_var, aliases)?,
         None => return None,
     };
     quote(&rest, style, word.quote)
@@ -499,7 +501,7 @@ pub async fn suggest_completion(
     cwd: Option<String>,
     path: Option<String>,
 ) -> Result<Option<String>, String> {
-    let Some((style, pid)) = pty::session_shell(&app.state::<TerminalState>(), &id) else {
+    let Some((style, pid, aliases)) = pty::session_shell(&app.state::<TerminalState>(), &id) else {
         return Ok(None);
     };
     let home = app.path().home_dir().ok();
@@ -513,7 +515,7 @@ pub async fn suggest_completion(
             .filter(|path| !path.is_empty())
             .or_else(|| std::env::var("PATH").ok())
             .unwrap_or_default();
-        suggest(&line, style, cwd.as_deref(), home.as_deref(), &path_var)
+        suggest(&line, style, cwd.as_deref(), home.as_deref(), &path_var, &aliases)
     })
     .await
     .map_err(|err| format!("Could not suggest: {err}"))
@@ -543,7 +545,7 @@ mod tests {
     }
 
     fn posix(line: &str, cwd: &Path) -> Option<String> {
-        suggest(line, Style::Posix, Some(cwd), Some(cwd), "")
+        suggest(line, Style::Posix, Some(cwd), Some(cwd), "", &[])
     }
 
     #[test]
@@ -616,12 +618,12 @@ mod tests {
         assert_eq!(posix("ls \"My", &root).as_deref(), Some(" Folder/"));
         assert_eq!(posix("ls 'My", &root).as_deref(), Some(" Folder/"));
         assert_eq!(
-            suggest("ls My", Style::PowerShell, Some(&root), None, "").as_deref(),
+            suggest("ls My", Style::PowerShell, Some(&root), None, "", &[]).as_deref(),
             Some("` Folder/")
         );
-        assert_eq!(suggest("dir My", Style::Cmd, Some(&root), None, ""), None);
+        assert_eq!(suggest("dir My", Style::Cmd, Some(&root), None, "", &[]), None);
         assert_eq!(
-            suggest("dir \"My", Style::Cmd, Some(&root), None, "").as_deref(),
+            suggest("dir \"My", Style::Cmd, Some(&root), None, "", &[]).as_deref(),
             Some(" Folder/")
         );
         let _ = fs::remove_dir_all(&root);
@@ -651,7 +653,7 @@ mod tests {
             }
         }
         let path_var = bin.to_string_lossy().into_owned();
-        let at = |line: &str| suggest(line, Style::Posix, Some(&root), None, &path_var);
+        let at = |line: &str| suggest(line, Style::Posix, Some(&root), None, &path_var, &[]);
         assert_eq!(at("gi").as_deref(), Some("t"));
         assert_eq!(at("git-").as_deref(), Some("lfs"));
         assert_eq!(at("sudo gi").as_deref(), Some("t"));
@@ -661,10 +663,19 @@ mod tests {
         /* A file or folder wins over a command: bin/ here. */
         assert_eq!(at("bi").as_deref(), Some("n/"));
         assert_eq!(
-            suggest("get-chi", Style::PowerShell, None, None, "").as_deref(),
+            suggest("get-chi", Style::PowerShell, None, None, "", &[]).as_deref(),
             Some("ldItem")
         );
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn suggests_aliases_as_commands() {
+        let aliases = ["gst".to_string(), "deploy-staging".to_string()];
+        let at = |line: &str| suggest(line, Style::Posix, None, None, "", &aliases);
+        assert_eq!(at("deploy-s").as_deref(), Some("taging"));
+        assert_eq!(at("gs").as_deref(), Some("t"));
+        assert_eq!(at("echo depl"), None);
     }
 
     #[test]

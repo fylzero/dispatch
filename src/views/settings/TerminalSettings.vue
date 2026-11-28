@@ -12,13 +12,14 @@ const CURSOR_OPTIONS: { id: CursorStyle; label: string }[] = [
 const ACCEPT_OPTIONS: { id: SuggestionAcceptKey; label: string }[] = [
   { id: "tab", label: "Tab" },
   { id: "right", label: "Right arrow" },
-  { id: "both", label: "Either" },
+  { id: "both", label: "Both" },
 ];
 
 /* Command+Right sends Ctrl+E (end of line), so it fills in a suggestion like End. */
 const acceptNote = isMac
   ? "Right arrow also covers End and Command+Right, and Option+Right takes one word."
   : "Right arrow also covers End, and Ctrl+Right takes one word.";
+
 </script>
 
 <template>
@@ -27,7 +28,7 @@ const acceptNote = isMac
       <div class="settings-header">
         <div>
           <div class="brand">Terminal</div>
-          <p class="muted tiny">Cursor and prompt.</p>
+          <p class="muted tiny">Cursor, prompt and suggestions.</p>
         </div>
       </div>
 
@@ -162,3 +163,4 @@ const acceptNote = isMac
     </div>
   </div>
 </template>
+

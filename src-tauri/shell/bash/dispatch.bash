@@ -11,6 +11,16 @@ elif [ -r "$HOME/.profile" ]; then
   . "$HOME/.profile"
 fi
 
+# Aliases from Settings › Terminal, already quoted by Dispatch, after the user's own so they win.
+[ -n "$DISPATCH_ALIASES" ] && eval "$DISPATCH_ALIASES"
+unset DISPATCH_ALIASES
+# With the Dispatch prompt off, Dispatch only starts bash this way for the aliases.
+if [ "$DISPATCH_PROMPT" = 0 ]; then
+  unset DISPATCH_PROMPT DISPATCH_PROMPT_INLINE
+  return
+fi
+unset DISPATCH_PROMPT
+
 # The Dispatch prompt: Node version, folder, git branch, and changed files,
 # printed as plain text. Each chip is wrapped in OSC 6973 marks so Dispatch can
 # draw a border and icon around it; the marks take no space on screen.

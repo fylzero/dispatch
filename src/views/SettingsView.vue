@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { SETTINGS_SECTIONS, type SettingsSection, openSettings, settingsSection } from "../tabs";
+import AliasSettings from "./settings/AliasSettings.vue";
 import AppearanceSettings from "./settings/AppearanceSettings.vue";
 import GeneralSettings from "./settings/GeneralSettings.vue";
 import HotkeysSettings from "./settings/HotkeysSettings.vue";
@@ -10,6 +11,7 @@ const sections: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
   { id: "appearance", label: "Appearance" },
   { id: "terminal", label: "Terminal" },
+  { id: "aliases", label: "Aliases" },
   { id: "hotkeys", label: "Hotkeys" },
   { id: "json", label: "JSON" },
 ];
@@ -40,6 +42,12 @@ const isSection = (value: string) => (SETTINGS_SECTIONS as readonly string[]).in
           <path d="M17 19v-6" />
           <path d="M20 19v-6" />
         </svg>
+        <svg v-else-if="item.id === 'aliases'" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m4 7 4 4-4 4" />
+          <path d="M11 9h9" />
+          <path d="M11 15h9" />
+          <path d="M14 12h6" />
+        </svg>
         <svg v-else-if="item.id === 'hotkeys'" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="5" width="18" height="14" rx="2" />
           <path d="M7 9h.01" />
@@ -67,6 +75,7 @@ const isSection = (value: string) => (SETTINGS_SECTIONS as readonly string[]).in
     <div class="settings-content" :class="{ fill: settingsSection === 'json' }">
       <AppearanceSettings v-if="settingsSection === 'appearance'" />
       <TerminalSettings v-else-if="settingsSection === 'terminal'" />
+      <AliasSettings v-else-if="settingsSection === 'aliases'" />
       <HotkeysSettings v-else-if="settingsSection === 'hotkeys'" />
       <JsonSettings v-else-if="settingsSection === 'json'" />
       <GeneralSettings v-else-if="isSection(settingsSection)" />

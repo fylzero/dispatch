@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use portable_pty::CommandBuilder;
 use tauri::{AppHandle, Manager};
 
+use crate::aliases::{self, Alias};
+
 const ZSH_FILES: &[(&str, &str)] = &[
     (".zshenv", include_str!("../shell/zsh/.zshenv")),
     (".zprofile", include_str!("../shell/zsh/.zprofile")),
@@ -60,31 +62,54 @@ fn integration_dir(app: &AppHandle) -> Option<PathBuf> {
 /// and the shell is zsh or bash. Other shells start as plain login shells,
 /// except that with `suggestions` PowerShell and cmd mark their prompt so
 /// Dispatch can suggest as you type (zsh and bash get that from the prompt).
+/// Every shell defines `aliases` after the user's own startup files; zsh and
+/// bash go through the Dispatch startup files for that even with the prompt off.
 pub fn configure(
     app: &AppHandle,
     cmd: &mut CommandBuilder,
     shell: &str,
     enabled: bool,
     suggestions: bool,
+    aliases: &[Alias],
 ) {
-    if suggestions {
-        match shell_kind(shell) {
-            Some(Shell::PowerShell) => {
+    match shell_kind(shell) {
+        Some(Shell::PowerShell) => {
+            let mut script = String::new();
+            if suggestions {
+                script.push_str(POWERSHELL_INIT);
+            }
+            script.push_str(&aliases::powershell(aliases));
+            if !script.is_empty() {
                 /* Encoded, so it needs no quoting and no execution policy allows a script file. */
                 cmd.arg("-NoExit");
                 cmd.arg("-EncodedCommand");
-                cmd.arg(encode_command(POWERSHELL_INIT));
+                cmd.arg(encode_command(&script));
                 return;
             }
-            Some(Shell::Cmd) => {
+        }
+        Some(Shell::Cmd) => {
+            if suggestions {
                 let own = std::env::var("PROMPT").unwrap_or_else(|_| "$P$G".into());
                 cmd.env("PROMPT", cmd_prompt(&own));
-                return;
             }
-            _ => {}
+            let macros = aliases::doskey(aliases);
+            if !macros.is_empty() {
+                if let Some(root) = integration_dir(app) {
+                    if write_files(&root, &[("aliases.doskey", &macros)]).is_some() {
+                        cmd.arg("/K");
+                        cmd.arg("doskey");
+                        let mut file = std::ffi::OsString::from("/macrofile=");
+                        file.push(root.join("aliases.doskey"));
+                        cmd.arg(file);
+                    }
+                }
+            }
+            return;
         }
+        _ => {}
     }
-    let applied = enabled && apply(app, cmd, shell).is_some();
+    let posix = aliases::posix(aliases);
+    let applied = (enabled || !posix.is_empty()) && apply(app, cmd, shell, enabled, &posix).is_some();
     #[cfg(unix)]
     if !applied {
         cmd.arg("-l");
@@ -94,7 +119,7 @@ pub fn configure(
     let _ = applied;
 }
 
-fn apply(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str) -> Option<()> {
+fn apply(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str, prompt: bool, aliases: &str) -> Option<()> {
     let root = integration_dir(app)?;
     match shell_kind(shell)? {
         Shell::Zsh => {
@@ -116,6 +141,9 @@ fn apply(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str) -> Option<()> {
         }
         Shell::PowerShell | Shell::Cmd => return None,
     }
+    /* Read once by the startup files, which then unset them. Set either way, so values Dispatch itself was started with don't count. */
+    cmd.env("DISPATCH_PROMPT", if prompt { "1" } else { "0" });
+    cmd.env("DISPATCH_ALIASES", aliases);
     Some(())
 }
 
