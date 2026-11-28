@@ -31,7 +31,11 @@ enum Shell {
 
 fn shell_kind(shell: &str) -> Option<Shell> {
     /* By hand, since a Windows path's backslashes are no separator to Path elsewhere. */
-    let name = shell.trim().rsplit(['/', '\\']).next()?.to_ascii_lowercase();
+    let name = shell
+        .trim()
+        .rsplit(['/', '\\'])
+        .next()?
+        .to_ascii_lowercase();
     match name.trim_end_matches(".exe") {
         "zsh" => Some(Shell::Zsh),
         "bash" => Some(Shell::Bash),
@@ -109,7 +113,8 @@ pub fn configure(
         _ => {}
     }
     let posix = aliases::posix(aliases);
-    let applied = (enabled || !posix.is_empty()) && apply(app, cmd, shell, enabled, &posix).is_some();
+    let applied =
+        (enabled || !posix.is_empty()) && apply(app, cmd, shell, enabled, &posix).is_some();
     #[cfg(unix)]
     if !applied {
         cmd.arg("-l");
@@ -119,7 +124,13 @@ pub fn configure(
     let _ = applied;
 }
 
-fn apply(app: &AppHandle, cmd: &mut CommandBuilder, shell: &str, prompt: bool, aliases: &str) -> Option<()> {
+fn apply(
+    app: &AppHandle,
+    cmd: &mut CommandBuilder,
+    shell: &str,
+    prompt: bool,
+    aliases: &str,
+) -> Option<()> {
     let root = integration_dir(app)?;
     match shell_kind(shell)? {
         Shell::Zsh => {
@@ -158,7 +169,10 @@ fn encode_command(script: &str) -> String {
     let bytes: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
-        let n = chunk.iter().enumerate().fold(0u32, |n, (i, byte)| n | (u32::from(*byte) << (16 - 8 * i)));
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, byte)| n | (u32::from(*byte) << (16 - 8 * i)));
         for i in 0..4 {
             if i <= chunk.len() {
                 out.push(ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char);

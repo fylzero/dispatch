@@ -24,7 +24,10 @@ pub struct AliasGroup {
 
 /// Every group's aliases in order, so a later one of the same name wins.
 pub fn flatten(groups: &[AliasGroup]) -> Vec<Alias> {
-    groups.iter().flat_map(|group| group.aliases.iter().cloned()).collect()
+    groups
+        .iter()
+        .flat_map(|group| group.aliases.iter().cloned())
+        .collect()
 }
 
 /// A name every shell takes as a plain word: letters, digits, `_`, `-` and
@@ -110,7 +113,11 @@ mod tests {
         ];
         assert_eq!(
             flatten(&groups),
-            [alias("gs", "git status"), alias("x", "one"), alias("x", "two")]
+            [
+                alias("gs", "git status"),
+                alias("x", "one"),
+                alias("x", "two")
+            ]
         );
     }
 

@@ -718,6 +718,29 @@ textarea {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  /* Tabs that don't fit still scroll with a trackpad or wheel, but never show a scrollbar. */
+  scrollbar-width: none;
+}
+
+.tab-list::-webkit-scrollbar {
+  display: none;
+}
+
+/* An edge fades out while more tabs are past it, so it's clear the row scrolls that way. */
+.tab-list.more-left,
+.tab-list.more-right {
+  --fade-left: 0px;
+  --fade-right: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-left), #000 calc(100% - var(--fade-right)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-left), #000 calc(100% - var(--fade-right)), transparent);
+}
+
+.tab-list.more-left {
+  --fade-left: 48px;
+}
+
+.tab-list.more-right {
+  --fade-right: 48px;
 }
 
 .tab-tools {

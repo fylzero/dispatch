@@ -98,6 +98,50 @@ function endReorder() {
   if (wasDragging) activate(wasDragging);
 }
 
+/*
+ * The tab row never shows a scrollbar, so the active tab scrolls itself into
+ * view (a new tab, or one picked by hotkey or menu), and a mouse wheel's
+ * up and down scrolls the row sideways. Trackpads scroll it sideways already.
+ */
+watch(
+  () => [activeId.value, tabs.value.length] as const,
+  async () => {
+    await nextTick();
+    tabList.value?.querySelector<HTMLElement>(".tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    updateOverflow();
+  },
+);
+
+/* Each edge fades out while there are more tabs past it. */
+const moreLeft = ref(false);
+const moreRight = ref(false);
+function updateOverflow() {
+  const list = tabList.value;
+  if (!list) return;
+  moreLeft.value = list.scrollLeft > 1;
+  moreRight.value = list.scrollLeft + list.clientWidth < list.scrollWidth - 1;
+}
+/* Watches the row and each tab, so a tab growing or shrinking counts too. */
+const overflowObserver = new ResizeObserver(updateOverflow);
+const tabMutations = new MutationObserver(() => {
+  overflowObserver.disconnect();
+  observeTabs();
+});
+function observeTabs() {
+  const list = tabList.value;
+  if (!list) return;
+  overflowObserver.observe(list);
+  for (const tab of Array.from(list.children)) overflowObserver.observe(tab);
+  updateOverflow();
+}
+
+function onTabListWheel(event: WheelEvent) {
+  const list = tabList.value;
+  if (!list || event.deltaX !== 0 || event.deltaY === 0 || list.scrollWidth <= list.clientWidth) return;
+  event.preventDefault();
+  list.scrollLeft += event.deltaY;
+}
+
 /** Middle-click closes a tab, as in a browser. */
 function onAuxClick(event: MouseEvent, id: string) {
   if (event.button === 1) closeTab(id);
@@ -182,12 +226,16 @@ async function syncFullscreen() {
 }
 
 onMounted(async () => {
+  observeTabs();
+  if (tabList.value) tabMutations.observe(tabList.value, { childList: true });
   if (!isMac) return;
   await syncFullscreen();
   stopResize = await getCurrentWindow().onResized(() => void syncFullscreen());
 });
 
 onBeforeUnmount(() => {
+  overflowObserver.disconnect();
+  tabMutations.disconnect();
   endReorder();
   stopResize?.();
 });
@@ -196,7 +244,14 @@ onBeforeUnmount(() => {
 <template>
   <div class="tab-bar" role="tablist" aria-label="Open tabs" data-tauri-drag-region>
     <div v-if="isMac && !fullscreen" class="window-controls-space" data-tauri-drag-region />
-    <div ref="tabList" class="tab-list" :class="{ reordering: draggingId }" data-tauri-drag-region>
+    <div
+      ref="tabList"
+      class="tab-list"
+      :class="{ reordering: draggingId, 'more-left': moreLeft, 'more-right': moreRight }"
+      data-tauri-drag-region
+      @wheel="onTabListWheel"
+      @scroll.passive="updateOverflow"
+    >
       <div
         v-for="tab in tabs"
         :key="tab.id"

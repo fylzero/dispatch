@@ -178,7 +178,14 @@ pub fn open_terminal(
             )
         })
         .unwrap_or_else(|_| (true, true, true, String::new(), Vec::new()));
-    prompt::configure(&app, &mut cmd, &shell, dispatch_prompt, suggestions, &aliases);
+    prompt::configure(
+        &app,
+        &mut cmd,
+        &shell,
+        dispatch_prompt,
+        suggestions,
+        &aliases,
+    );
     /* Read once by the Dispatch prompt scripts, which then unset it. */
     if dispatch_prompt && !type_below_prompt {
         cmd.env("DISPATCH_PROMPT_INLINE", "1");
@@ -307,7 +314,10 @@ pub fn close_window_terminals(app: &AppHandle, window: &str) {
 }
 
 /// How terminal `id`'s shell quotes, its process id, and its aliases, for suggestions.
-pub fn session_shell(state: &TerminalState, id: &str) -> Option<(Style, Option<u32>, Arc<[String]>)> {
+pub fn session_shell(
+    state: &TerminalState,
+    id: &str,
+) -> Option<(Style, Option<u32>, Arc<[String]>)> {
     let sessions = lock_sessions(state).ok()?;
     let session = sessions.get(id)?;
     let pid = session.child.lock().ok()?.process_id();

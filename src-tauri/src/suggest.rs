@@ -12,7 +12,6 @@ use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager};
 
-
 use crate::pty::{self, TerminalState};
 
 /// How a shell reads a command line: its escape character and quotes.
@@ -94,33 +93,81 @@ const LEAD_WORDS: &[&str] = &[
 
 /// Commands whose argument is a folder.
 const FOLDER_COMMANDS: &[&str] = &[
-    "cd", "pushd", "rmdir", "z", "chdir", "set-location", "sl", "push-location",
+    "cd",
+    "pushd",
+    "rmdir",
+    "z",
+    "chdir",
+    "set-location",
+    "sl",
+    "push-location",
 ];
 
 /// Commands the shell runs itself, so they are on no PATH.
 const POSIX_BUILTINS: &[&str] = &[
-    "alias", "bg", "bind", "builtin", "cd", "command", "declare", "dirs", "disown", "echo",
-    "eval", "exec", "exit", "export", "fc", "fg", "hash", "history", "jobs", "kill", "local",
-    "popd", "printf", "pushd", "pwd", "read", "readonly", "return", "set", "shift", "source",
-    "test", "times", "trap", "type", "typeset", "ulimit", "umask", "unalias", "unset", "wait",
-    "which",
+    "alias", "bg", "bind", "builtin", "cd", "command", "declare", "dirs", "disown", "echo", "eval",
+    "exec", "exit", "export", "fc", "fg", "hash", "history", "jobs", "kill", "local", "popd",
+    "printf", "pushd", "pwd", "read", "readonly", "return", "set", "shift", "source", "test",
+    "times", "trap", "type", "typeset", "ulimit", "umask", "unalias", "unset", "wait", "which",
 ];
 
 const POWERSHELL_COMMANDS: &[&str] = &[
-    "Clear-Host", "Copy-Item", "ForEach-Object", "Get-ChildItem", "Get-Command", "Get-Content",
-    "Get-Help", "Get-History", "Get-Item", "Get-Location", "Get-Member", "Get-Process",
-    "Get-Service", "Import-Module", "Invoke-Expression", "Invoke-RestMethod",
-    "Invoke-WebRequest", "Move-Item", "New-Item", "Out-File", "Pop-Location", "Push-Location",
-    "Remove-Item", "Rename-Item", "Select-Object", "Select-String", "Set-Content",
-    "Set-Location", "Sort-Object", "Start-Process", "Stop-Process", "Test-Path", "Where-Object",
-    "Write-Host", "Write-Output", "cd", "cls", "copy", "del", "dir", "echo", "exit", "ls",
-    "mkdir", "move", "pwd", "ren", "rm", "rmdir", "type",
+    "Clear-Host",
+    "Copy-Item",
+    "ForEach-Object",
+    "Get-ChildItem",
+    "Get-Command",
+    "Get-Content",
+    "Get-Help",
+    "Get-History",
+    "Get-Item",
+    "Get-Location",
+    "Get-Member",
+    "Get-Process",
+    "Get-Service",
+    "Import-Module",
+    "Invoke-Expression",
+    "Invoke-RestMethod",
+    "Invoke-WebRequest",
+    "Move-Item",
+    "New-Item",
+    "Out-File",
+    "Pop-Location",
+    "Push-Location",
+    "Remove-Item",
+    "Rename-Item",
+    "Select-Object",
+    "Select-String",
+    "Set-Content",
+    "Set-Location",
+    "Sort-Object",
+    "Start-Process",
+    "Stop-Process",
+    "Test-Path",
+    "Where-Object",
+    "Write-Host",
+    "Write-Output",
+    "cd",
+    "cls",
+    "copy",
+    "del",
+    "dir",
+    "echo",
+    "exit",
+    "ls",
+    "mkdir",
+    "move",
+    "pwd",
+    "ren",
+    "rm",
+    "rmdir",
+    "type",
 ];
 
 const CMD_BUILTINS: &[&str] = &[
     "assoc", "call", "cd", "chdir", "cls", "copy", "del", "dir", "echo", "endlocal", "erase",
-    "exit", "for", "ftype", "goto", "if", "md", "mkdir", "mklink", "move", "path", "popd",
-    "pushd", "rd", "ren", "rename", "rmdir", "set", "setlocal", "start", "title", "type", "ver",
+    "exit", "for", "ftype", "goto", "if", "md", "mkdir", "mklink", "move", "path", "popd", "pushd",
+    "rd", "ren", "rename", "rmdir", "set", "setlocal", "start", "title", "type", "ver",
 ];
 
 /// The word the cursor is at the end of, as the shell will read it.
@@ -371,7 +418,12 @@ fn program_name(entry: &std::fs::DirEntry) -> Option<String> {
 
 /// The rest of the likeliest command for `typed`: the shortest name that
 /// starts with it, so `gi` is git rather than gifsicle.
-fn complete_command(typed: &str, style: Style, path_var: &str, aliases: &[String]) -> Option<String> {
+fn complete_command(
+    typed: &str,
+    style: Style,
+    path_var: &str,
+    aliases: &[String],
+) -> Option<String> {
     let ignore_case = style.commands_ignore_case();
     let builtins: &[&str] = match style {
         Style::Posix => POSIX_BUILTINS,
@@ -480,11 +532,15 @@ fn suggest(
     });
     let file = complete_path(&word.text, style, cwd, home, folders_only);
     /* No file or folder: the first word of a command may be a command name. */
-    let plain_name = !word.text.contains(|c| is_separator_char(c, style) || c == '\\')
+    let plain_name = !word
+        .text
+        .contains(|c| is_separator_char(c, style) || c == '\\')
         && !word.text.starts_with(['.', '~']);
     let rest = match file {
         Some(rest) => rest,
-        None if word.at_command && plain_name => complete_command(&word.text, style, path_var, aliases)?,
+        None if word.at_command && plain_name => {
+            complete_command(&word.text, style, path_var, aliases)?
+        }
         None => return None,
     };
     quote(&rest, style, word.quote)
@@ -515,7 +571,14 @@ pub async fn suggest_completion(
             .filter(|path| !path.is_empty())
             .or_else(|| std::env::var("PATH").ok())
             .unwrap_or_default();
-        suggest(&line, style, cwd.as_deref(), home.as_deref(), &path_var, &aliases)
+        suggest(
+            &line,
+            style,
+            cwd.as_deref(),
+            home.as_deref(),
+            &path_var,
+            &aliases,
+        )
     })
     .await
     .map_err(|err| format!("Could not suggest: {err}"))
@@ -532,7 +595,8 @@ mod tests {
 
     /// A folder with: src/ (main.ts, components/), scripts/, My Folder/, .hidden/, README.md, run.sh.
     fn fixture(name: &str) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("dispatch-suggest-{name}-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("dispatch-suggest-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("src/components")).unwrap();
         fs::create_dir_all(root.join("scripts")).unwrap();
@@ -597,8 +661,9 @@ mod tests {
     #[test]
     fn cd_suggests_only_folders() {
         let root = fixture("folders");
-        assert_eq!(posix("cat r", &root).as_deref(), Some("un.sh"));
-        assert_eq!(posix("cd r", &root), None);
+        /* "ru", not "r": Windows matches files ignoring case, so r is README.md there too. */
+        assert_eq!(posix("cat ru", &root).as_deref(), Some("n.sh"));
+        assert_eq!(posix("cd ru", &root), None);
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -617,14 +682,20 @@ mod tests {
         assert_eq!(posix("ls My\\ F", &root).as_deref(), Some("older/"));
         assert_eq!(posix("ls \"My", &root).as_deref(), Some(" Folder/"));
         assert_eq!(posix("ls 'My", &root).as_deref(), Some(" Folder/"));
+        /* PowerShell and cmd end a folder with a backslash on Windows. */
+        let ps = Style::PowerShell.folder_separator();
         assert_eq!(
-            suggest("ls My", Style::PowerShell, Some(&root), None, "", &[]).as_deref(),
-            Some("` Folder/")
+            suggest("ls My", Style::PowerShell, Some(&root), None, "", &[]),
+            Some(format!("` Folder{ps}"))
         );
-        assert_eq!(suggest("dir My", Style::Cmd, Some(&root), None, "", &[]), None);
         assert_eq!(
-            suggest("dir \"My", Style::Cmd, Some(&root), None, "", &[]).as_deref(),
-            Some(" Folder/")
+            suggest("dir My", Style::Cmd, Some(&root), None, "", &[]),
+            None
+        );
+        let cmd = Style::Cmd.folder_separator();
+        assert_eq!(
+            suggest("dir \"My", Style::Cmd, Some(&root), None, "", &[]),
+            Some(format!(" Folder{cmd}"))
         );
         let _ = fs::remove_dir_all(&root);
     }
@@ -644,7 +715,13 @@ mod tests {
         let bin = root.join("bin");
         fs::create_dir_all(&bin).unwrap();
         for name in ["git", "gifsicle", "git-lfs"] {
-            let path = bin.join(name);
+            /* On Windows a program needs an extension from PATHEXT. */
+            let file = if cfg!(windows) {
+                format!("{name}.exe")
+            } else {
+                name.to_string()
+            };
+            let path = bin.join(file);
             fs::write(&path, "").unwrap();
             #[cfg(unix)]
             {
@@ -681,8 +758,14 @@ mod tests {
     #[test]
     fn knows_shells() {
         assert_eq!(Style::for_shell("/bin/zsh"), Style::Posix);
-        assert_eq!(Style::for_shell("C:\\Program Files\\PowerShell\\7\\pwsh.exe"), Style::PowerShell);
+        assert_eq!(
+            Style::for_shell("C:\\Program Files\\PowerShell\\7\\pwsh.exe"),
+            Style::PowerShell
+        );
         assert_eq!(Style::for_shell("powershell.exe"), Style::PowerShell);
-        assert_eq!(Style::for_shell("C:\\Windows\\System32\\cmd.exe"), Style::Cmd);
+        assert_eq!(
+            Style::for_shell("C:\\Windows\\System32\\cmd.exe"),
+            Style::Cmd
+        );
     }
 }
