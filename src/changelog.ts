@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.5.0",
+    date: "November 28, 2026",
+    notes: [
+      "Settings › Aliases can load your aliases in other terminals too, like Terminal, iTerm, and VS Code. Turn on Use in other terminals and Dispatch keeps them in ~/.config/dispatch and adds a marked block that loads them to your .zshrc, .bashrc, or PowerShell profile, so you don't edit anything by hand. The block goes at the top, so the rest of the file can use your aliases, and again at the end, so they win over one of the same name. The page lists each file it changed. A file that's a link, as dotfile managers make them, is changed where it points, the first change keeps a backup beside the file, and turning it off takes out only those blocks.",
+    ],
+  },
+  {
     version: "1.4.0",
     date: "November 27, 2026",
     notes: [

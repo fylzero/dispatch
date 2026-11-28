@@ -93,6 +93,11 @@ fn default_shell() -> String {
         .unwrap_or_else(|| "cmd.exe".into())
 }
 
+/// The shell new tabs start when Settings names none.
+pub(crate) fn login_shell() -> String {
+    default_shell()
+}
+
 fn lock_sessions(
     state: &TerminalState,
 ) -> Result<std::sync::MutexGuard<'_, HashMap<String, TerminalSession>>, String> {

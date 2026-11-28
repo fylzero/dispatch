@@ -2,6 +2,9 @@
 # files the way a login shell would, then put the Dispatch prompt on top.
 # Kept to bash 3.2, the version macOS ships.
 
+# Aliases from Settings › Aliases, already quoted by Dispatch: first so the user's
+# startup files can use them, and again after them so they win over one of the same name.
+[ -n "$DISPATCH_ALIASES" ] && eval "$DISPATCH_ALIASES"
 [ -r /etc/profile ] && . /etc/profile
 if [ -r "$HOME/.bash_profile" ]; then
   . "$HOME/.bash_profile"
@@ -11,7 +14,6 @@ elif [ -r "$HOME/.profile" ]; then
   . "$HOME/.profile"
 fi
 
-# Aliases from Settings › Terminal, already quoted by Dispatch, after the user's own so they win.
 [ -n "$DISPATCH_ALIASES" ] && eval "$DISPATCH_ALIASES"
 unset DISPATCH_ALIASES
 # With the Dispatch prompt off, Dispatch only starts bash this way for the aliases.

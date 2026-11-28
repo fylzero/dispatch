@@ -154,6 +154,7 @@ pub fn save_settings(
         .map_err(|_| "Could not update settings.".to_string())?;
     *current = settings.clone();
     drop(current);
+    crate::alias_files::refresh(&crate::aliases::flatten(&settings.alias_groups));
     /* The other windows follow along. */
     for label in app.webview_windows().into_keys() {
         if label != window.label() {

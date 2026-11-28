@@ -11,6 +11,18 @@ export const setWindowBlur = (radius: number) => invoke<void>("set_window_blur",
 export const settingsFilePath = () => invoke<string>("settings_file_path");
 export const readTextFile = (path: string) => invoke<string>("read_text_file", { path });
 export const writeTextFile = (path: string, contents: string) => invoke<void>("write_text_file", { path, contents });
+/** A startup file that can load Dispatch's aliases in other terminals (alias_files.rs). */
+export interface StartupFile {
+  shell: string;
+  path: string;
+  writesTo: string | null;
+  state: "added" | "yours" | "off";
+  line: string;
+  error: string | null;
+}
+export const aliasStartupFiles = () => invoke<StartupFile[]>("alias_startup_files");
+export const setAliasesEverywhere = (enabled: boolean) =>
+  invoke<StartupFile[]>("set_aliases_everywhere", { enabled });
 export const setToggleHotkey = (accelerator: string) => invoke<void>("set_toggle_hotkey", { accelerator });
 export const pauseToggleHotkey = (paused: boolean) => invoke<void>("pause_toggle_hotkey", { paused });
 /**

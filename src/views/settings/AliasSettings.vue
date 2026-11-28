@@ -1,8 +1,49 @@
 <script setup lang="ts">
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { aliasStartupFiles, errorMessage, setAliasesEverywhere, type StartupFile } from "../../api";
 import { settings, updateSettings } from "../../settings";
 import type { Alias, AliasGroup } from "../../types";
+
+/*
+ * Use in other terminals: Dispatch writes the aliases to ~/.config/dispatch
+ * and adds a marked block to each startup file that loads them. The switch
+ * shows what the files say, so a block removed by hand shows as off.
+ */
+const startupFiles = ref<StartupFile[] | null>(null);
+const everywhereBusy = ref(false);
+const everywhereError = ref("");
+const everywhereChanged = ref(false);
+const everywhere = computed(() => startupFiles.value?.some((file) => file.state === "added") ?? false);
+const missingFiles = computed(
+  () => everywhere.value && (startupFiles.value?.some((file) => file.state === "off" && !file.error) ?? false),
+);
+
+async function runEverywhere(task: () => Promise<StartupFile[]>) {
+  everywhereBusy.value = true;
+  everywhereError.value = "";
+  try {
+    startupFiles.value = await task();
+  } catch (err) {
+    everywhereError.value = errorMessage(err);
+  } finally {
+    everywhereBusy.value = false;
+  }
+}
+
+function setEverywhere(enabled: boolean) {
+  everywhereChanged.value = true;
+  void runEverywhere(() => setAliasesEverywhere(enabled));
+}
+
+function fileState(file: StartupFile) {
+  if (file.error) return "Couldn't change it. Add this line yourself:";
+  if (file.state === "added") return "Loads these aliases.";
+  if (file.state === "yours") return "Loads these aliases with a line of your own, which Dispatch leaves alone.";
+  return everywhere.value ? "Not set up yet." : "Not changed.";
+}
+
+onMounted(() => void runEverywhere(aliasStartupFiles));
 
 /* Matches valid_name in aliases.rs: a plain word in every shell. */
 const ALIAS_NAME = /^[A-Za-z0-9_.][A-Za-z0-9_.-]*$/;
@@ -224,8 +265,8 @@ async function keyMoveGroup(event: KeyboardEvent, g: number) {
           <div class="brand">Aliases</div>
           <p class="muted tiny">
             Type a name to run its command; anything after the name goes after the command. Defined in zsh, bash,
-            PowerShell and cmd after your own startup files, so one here replaces an alias of the same name. Only in
-            Dispatch, and only in tabs opened after a change. Groups just keep them in order.
+            PowerShell and cmd after your own startup files, so one here replaces an alias of the same name, in tabs
+            opened after a change. Groups just keep them in order.
           </p>
         </div>
         <button type="button" class="alias-add" @click="addGroup">
@@ -233,6 +274,60 @@ async function keyMoveGroup(event: KeyboardEvent, g: number) {
           Add group
         </button>
       </div>
+
+      <section class="settings-card">
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Use in other terminals</h3>
+            <p class="muted tiny">
+              Load these aliases in Terminal, iTerm, VS Code and any other terminal too. Dispatch keeps them in
+              ~/.config/dispatch and adds a marked block that loads them to the top and end of your startup files, so
+              the rest of the file can use them and they still win over one of the same name. Turning this off takes
+              out only those blocks.
+            </p>
+          </div>
+          <div class="settings-control">
+            <button
+              class="switch"
+              :class="{ on: everywhere }"
+              type="button"
+              role="switch"
+              :aria-checked="everywhere"
+              aria-label="Use in other terminals"
+              :disabled="everywhereBusy || startupFiles === null || (!everywhere && !startupFiles.length)"
+              @click="setEverywhere(!everywhere)"
+            >
+              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
+            </button>
+          </div>
+        </div>
+        <p v-if="everywhereError" class="muted tiny settings-error alias-files-note">{{ everywhereError }}</p>
+        <p v-else-if="startupFiles && !startupFiles.length" class="muted tiny alias-files-note">
+          No zsh, bash or PowerShell startup files found.
+        </p>
+        <ul v-else-if="startupFiles" class="alias-files">
+          <li v-for="file in startupFiles" :key="file.path">
+            <div class="alias-file-head">
+              <span class="alias-file-shell">{{ file.shell }}</span>
+              <code>{{ file.path }}</code>
+            </div>
+            <p class="muted tiny" :class="{ 'settings-error': file.error }">
+              {{ fileState(file) }}
+              <template v-if="file.writesTo && !file.error"> It's a link, so the change goes in {{ file.writesTo }}.</template>
+            </p>
+            <template v-if="file.error">
+              <code class="alias-file-line">{{ file.line }}</code>
+              <p class="muted tiny">{{ file.error }}</p>
+            </template>
+          </li>
+        </ul>
+        <div v-if="missingFiles" class="alias-files-note">
+          <button type="button" class="ghost" :disabled="everywhereBusy" @click="setEverywhere(true)">Set up the rest</button>
+        </div>
+        <p v-if="everywhereChanged && everywhere && !everywhereError" class="muted tiny alias-files-note">
+          Terminals that are already open load them in their next new tab or window.
+        </p>
+      </section>
 
       <section v-if="!groups.length" class="settings-card alias-empty">
         <p class="muted tiny">No aliases yet. Add a group to start, like “git” or “deploy”.</p>
@@ -378,6 +473,51 @@ svg {
 .drag-handle svg circle {
   fill: currentColor;
   stroke: none;
+}
+
+.alias-files {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.alias-files li p {
+  margin: 0.15rem 0 0;
+}
+
+.alias-file-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.alias-file-shell {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.alias-files code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.alias-file-line {
+  display: block;
+  margin-top: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  user-select: text;
+}
+
+.alias-files-note {
+  margin: 0;
+  padding-bottom: 0.75rem;
 }
 
 .alias-empty {

@@ -1,3 +1,4 @@
+mod alias_files;
 mod aliases;
 mod blur;
 mod corners;
@@ -99,6 +100,8 @@ pub fn run() {
             pty::close_terminal,
             pty::terminal_cwd,
             suggest::suggest_completion,
+            alias_files::alias_startup_files,
+            alias_files::set_aliases_everywhere,
             hotkey::set_toggle_hotkey,
             hotkey::pause_toggle_hotkey,
             windows::close_window,
