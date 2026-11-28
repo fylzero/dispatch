@@ -56,19 +56,20 @@ const acceptNote = isMac
             <h3>Blinking cursor</h3>
             <p class="muted tiny">Blink the cursor while a tab has focus.</p>
           </div>
-          <div class="settings-control">
-            <button
-              class="switch"
-              :class="{ on: settings.cursorBlink }"
-              type="button"
-              role="switch"
-              :aria-checked="settings.cursorBlink"
-              aria-label="Blinking cursor"
-              @click="updateSettings({ cursorBlink: !settings.cursorBlink })"
-            >
-              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
-            </button>
-          </div>
+          <button
+            class="switch"
+            :class="{ on: settings.cursorBlink }"
+            type="button"
+            role="switch"
+            :aria-checked="settings.cursorBlink"
+            aria-label="Blinking cursor"
+            @click="updateSettings({ cursorBlink: !settings.cursorBlink })"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" />
+            </span>
+            {{ settings.cursorBlink ? "On" : "Off" }}
+          </button>
         </div>
         <div class="settings-row">
           <div class="settings-row-copy">
@@ -78,19 +79,20 @@ const acceptNote = isMac
               new tabs.
             </p>
           </div>
-          <div class="settings-control">
-            <button
-              class="switch"
-              :class="{ on: settings.dispatchPrompt }"
-              type="button"
-              role="switch"
-              :aria-checked="settings.dispatchPrompt"
-              aria-label="Dispatch prompt"
-              @click="updateSettings({ dispatchPrompt: !settings.dispatchPrompt })"
-            >
-              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
-            </button>
-          </div>
+          <button
+            class="switch"
+            :class="{ on: settings.dispatchPrompt }"
+            type="button"
+            role="switch"
+            :aria-checked="settings.dispatchPrompt"
+            aria-label="Dispatch prompt"
+            @click="updateSettings({ dispatchPrompt: !settings.dispatchPrompt })"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" />
+            </span>
+            {{ settings.dispatchPrompt ? "On" : "Off" }}
+          </button>
         </div>
         <div class="settings-row" :class="{ disabled: !settings.dispatchPrompt }">
           <div class="settings-row-copy">
@@ -100,20 +102,21 @@ const acceptNote = isMac
               Applies to new tabs.
             </p>
           </div>
-          <div class="settings-control">
-            <button
-              class="switch"
-              :class="{ on: settings.typeBelowPrompt }"
-              type="button"
-              role="switch"
-              :aria-checked="settings.typeBelowPrompt"
-              :disabled="!settings.dispatchPrompt"
-              aria-label="Type below the prompt"
-              @click="updateSettings({ typeBelowPrompt: !settings.typeBelowPrompt })"
-            >
-              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
-            </button>
-          </div>
+          <button
+            class="switch"
+            :class="{ on: settings.typeBelowPrompt }"
+            type="button"
+            role="switch"
+            :aria-checked="settings.typeBelowPrompt"
+            :disabled="!settings.dispatchPrompt"
+            aria-label="Type below the prompt"
+            @click="updateSettings({ typeBelowPrompt: !settings.typeBelowPrompt })"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" />
+            </span>
+            {{ settings.typeBelowPrompt ? "On" : "Off" }}
+          </button>
         </div>
         <div class="settings-row">
           <div class="settings-row-copy">
@@ -124,19 +127,20 @@ const acceptNote = isMac
               turning it on or off applies to new tabs.
             </p>
           </div>
-          <div class="settings-control">
-            <button
-              class="switch"
-              :class="{ on: settings.suggestions }"
-              type="button"
-              role="switch"
-              :aria-checked="settings.suggestions"
-              aria-label="Suggestions"
-              @click="updateSettings({ suggestions: !settings.suggestions })"
-            >
-              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
-            </button>
-          </div>
+          <button
+            class="switch"
+            :class="{ on: settings.suggestions }"
+            type="button"
+            role="switch"
+            :aria-checked="settings.suggestions"
+            aria-label="Suggestions"
+            @click="updateSettings({ suggestions: !settings.suggestions })"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" />
+            </span>
+            {{ settings.suggestions ? "On" : "Off" }}
+          </button>
         </div>
         <div class="settings-row" :class="{ disabled: !settings.suggestions }">
           <div class="settings-row-copy">

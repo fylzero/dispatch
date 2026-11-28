@@ -99,6 +99,7 @@ pub fn run() {
             pty::resize_terminal,
             pty::close_terminal,
             pty::terminal_cwd,
+            pty::default_shell_path,
             suggest::suggest_completion,
             alias_files::alias_startup_files,
             alias_files::set_aliases_everywhere,

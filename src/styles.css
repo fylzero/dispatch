@@ -544,6 +544,44 @@ textarea {
   flex: 0 0 auto;
 }
 
+/*
+ * A layer with a see-through hole (FontPreview.vue sets the --hole-* place and size):
+ * its background moves to a ::before masked everywhere but that rounded box.
+ */
+.see-through {
+  position: relative;
+  isolation: isolate;
+}
+
+.main > .main-pane.see-through,
+.settings-card.see-through {
+  background: transparent;
+}
+
+.see-through::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0),
+    /* A rounded box with no size of its own, so its 6px corners (the preview's radius) stay 6px at any size. */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='6'/%3E%3C/svg%3E")
+      var(--hole-x, 0) var(--hole-y, 0) / var(--hole-w, 0) var(--hole-h, 0) no-repeat;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.main > .main-pane.see-through::before {
+  background: var(--bg);
+}
+
+.settings-card.see-through::before {
+  background: var(--bg-raised);
+}
+
 .settings-card-title {
   margin: 0 0 0.15rem;
   font-size: 13px;
@@ -561,6 +599,11 @@ textarea {
 
 .settings-row + .settings-row {
   border-top: 1px solid var(--border);
+}
+
+/* The card adds 0.85rem above and 0.35rem below, so trim the first row to match the bottom: 1.1rem each. */
+.settings-card > .settings-row:first-child {
+  padding-top: 0.25rem;
 }
 
 .settings-row-copy h3 {
@@ -1212,8 +1255,8 @@ button.tab-new:hover:not(:disabled) {
   display: none !important;
 }
 
-/* Chips the Dispatch prompt draws over its own text: Node version, folder, git branch, changes. */
-.terminal-host .prompt-chip {
+/* Chips the Dispatch prompt draws over its own text: Node version, folder, git branch, changes. Also in the font preview. */
+:is(.terminal-host, .font-preview) .prompt-chip {
   pointer-events: none;
 }
 
@@ -1229,7 +1272,7 @@ button.tab-new:hover:not(:disabled) {
   flex: 0 0 var(--cell, 8px);
 }
 
-.terminal-host .prompt-chip::before {
+:is(.terminal-host, .font-preview) .prompt-chip::before {
   content: "";
   position: absolute;
   inset: 1px 0;
@@ -1239,7 +1282,7 @@ button.tab-new:hover:not(:disabled) {
 }
 
 /* The prompt leaves two blank cells after the first one for the icon. */
-.terminal-host .prompt-chip svg {
+:is(.terminal-host, .font-preview) .prompt-chip svg {
   position: absolute;
   top: 50%;
   left: calc(var(--cell, 8px) * 2);
@@ -1253,16 +1296,16 @@ button.tab-new:hover:not(:disabled) {
   stroke-linejoin: round;
 }
 
-.terminal-host .chip-node svg,
-.terminal-host .chip-branch svg {
+:is(.terminal-host, .font-preview) .chip-node svg,
+:is(.terminal-host, .font-preview) .chip-branch svg {
   color: var(--good);
 }
 
-.terminal-host .chip-node .glyph {
+:is(.terminal-host, .font-preview) .chip-node .glyph {
   stroke-width: 1.5;
 }
 
-.terminal-host .chip-cwd svg {
+:is(.terminal-host, .font-preview) .chip-cwd svg {
   color: var(--text-faint);
 }
 
@@ -1428,14 +1471,35 @@ kbd {
 .switch {
   display: inline-flex;
   align-items: center;
+  gap: 0.45rem;
   border: 0;
   background: transparent;
   box-shadow: none;
+  color: var(--muted);
   padding: 0.15rem 0.1rem;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
+.switch.on {
+  color: var(--text);
+}
+
+/* Recon's switch keeps the plain button hover; match it exactly. */
 button.switch:hover:not(:disabled) {
-  background: transparent;
+  background: var(--bg-hover);
+}
+
+/* A button that reads as a link, copied from Shipyard. */
+.link-button,
+button.link-button:hover:not(:disabled) {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* A setting that only matters while another one is on. */

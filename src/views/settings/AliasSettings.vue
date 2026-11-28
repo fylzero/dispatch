@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { aliasStartupFiles, errorMessage, setAliasesEverywhere, type StartupFile } from "../../api";
+import { placePopover, useDismiss, type PopoverPosition } from "../../composables/usePopover";
 import { settings, updateSettings } from "../../settings";
 import type { Alias, AliasGroup } from "../../types";
 
 /*
- * Use in other terminals: Dispatch writes the aliases to ~/.config/dispatch
+ * Make aliases global: Dispatch writes the aliases to ~/.config/dispatch
  * and adds a marked block to each startup file that loads them. The switch
  * shows what the files say, so a block removed by hand shows as off.
  */
 const startupFiles = ref<StartupFile[] | null>(null);
 const everywhereBusy = ref(false);
 const everywhereError = ref("");
-const everywhereChanged = ref(false);
 const everywhere = computed(() => startupFiles.value?.some((file) => file.state === "added") ?? false);
 const missingFiles = computed(
   () => everywhere.value && (startupFiles.value?.some((file) => file.state === "off" && !file.error) ?? false),
@@ -32,18 +32,54 @@ async function runEverywhere(task: () => Promise<StartupFile[]>) {
 }
 
 function setEverywhere(enabled: boolean) {
-  everywhereChanged.value = true;
   void runEverywhere(() => setAliasesEverywhere(enabled));
 }
 
-function fileState(file: StartupFile) {
-  if (file.error) return "Couldn't change it. Add this line yourself:";
-  if (file.state === "added") return "Loads these aliases.";
-  if (file.state === "yours") return "Loads these aliases with a line of your own, which Dispatch leaves alone.";
-  return everywhere.value ? "Not set up yet." : "Not changed.";
+/** Short status shown as a pill beside each file. */
+function fileStatus(file: StartupFile): { label: string; tone: "good" | "info" | "bad" | "idle" } {
+  if (file.error) return { label: "Couldn't change", tone: "bad" };
+  if (file.state === "added") return { label: "Active", tone: "good" };
+  if (file.state === "yours") return { label: "Active, your line", tone: "info" };
+  return { label: everywhere.value ? "Not set up" : "Off", tone: "idle" };
+}
+
+/** Extra detail under a file, only when there's something worth saying. */
+function fileNote(file: StartupFile) {
+  if (file.error) return "Add this line to the file yourself:";
+  if (file.state === "yours") return "This file already loads them with a line of your own, which Dispatch leaves alone.";
+  if (file.writesTo) return `It's a link, so the change goes in ${file.writesTo}.`;
+  return "";
 }
 
 onMounted(() => void runEverywhere(aliasStartupFiles));
+
+/* What the switch does and each file's state live in a popover from the info button; problems stay on the card. */
+const failedFiles = computed(() => startupFiles.value?.filter((file) => file.error) ?? []);
+const infoOpen = ref(false);
+const infoButton = ref<HTMLElement | null>(null);
+const infoPopover = ref<HTMLElement | null>(null);
+const infoPosition = ref<PopoverPosition>({ left: 0, top: 0 });
+
+function toggleInfo() {
+  infoOpen.value = !infoOpen.value;
+  if (!infoOpen.value) return;
+  void nextTick(() => {
+    if (infoButton.value) infoPosition.value = placePopover(infoButton.value.getBoundingClientRect(), infoPopover.value);
+  });
+}
+
+useDismiss(infoOpen, () => [infoPopover.value, infoButton.value], () => (infoOpen.value = false));
+
+/* It's placed against the window, so close it when the page scrolls out from under it. */
+function closeInfoOnScroll(event: Event) {
+  if (!(event.target instanceof Node && infoPopover.value?.contains(event.target))) infoOpen.value = false;
+}
+watch(infoOpen, (open) =>
+  open
+    ? window.addEventListener("scroll", closeInfoOnScroll, true)
+    : window.removeEventListener("scroll", closeInfoOnScroll, true),
+);
+onBeforeUnmount(() => window.removeEventListener("scroll", closeInfoOnScroll, true));
 
 /* Matches valid_name in aliases.rs: a plain word in every shell. */
 const ALIAS_NAME = /^[A-Za-z0-9_.][A-Za-z0-9_.-]*$/;
@@ -263,11 +299,6 @@ async function keyMoveGroup(event: KeyboardEvent, g: number) {
       <div class="settings-header">
         <div>
           <div class="brand">Aliases</div>
-          <p class="muted tiny">
-            Type a name to run its command; anything after the name goes after the command. Defined in zsh, bash,
-            PowerShell and cmd after your own startup files, so one here replaces an alias of the same name, in tabs
-            opened after a change. Groups just keep them in order.
-          </p>
         </div>
         <button type="button" class="alias-add" @click="addGroup">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
@@ -278,56 +309,99 @@ async function keyMoveGroup(event: KeyboardEvent, g: number) {
       <section class="settings-card">
         <div class="settings-row">
           <div class="settings-row-copy">
-            <h3>Use in other terminals</h3>
-            <p class="muted tiny">
-              Load these aliases in Terminal, iTerm, VS Code and any other terminal too. Dispatch keeps them in
-              ~/.config/dispatch and adds a marked block that loads them to the top and end of your startup files, so
-              the rest of the file can use them and they still win over one of the same name. Turning this off takes
-              out only those blocks.
-            </p>
+            <h3 class="alias-global-title">
+              Make aliases global
+              <button
+                ref="infoButton"
+                type="button"
+                class="alias-info"
+                :class="{ open: infoOpen }"
+                aria-label="About making aliases global"
+                :aria-expanded="infoOpen"
+                @click="toggleInfo"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" /><path d="M12 11v5" /><path d="M12 8h.01" />
+                </svg>
+              </button>
+            </h3>
           </div>
-          <div class="settings-control">
-            <button
-              class="switch"
-              :class="{ on: everywhere }"
-              type="button"
-              role="switch"
-              :aria-checked="everywhere"
-              aria-label="Use in other terminals"
-              :disabled="everywhereBusy || startupFiles === null || (!everywhere && !startupFiles.length)"
-              @click="setEverywhere(!everywhere)"
-            >
-              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
-            </button>
-          </div>
+          <button
+            class="switch"
+            :class="{ on: everywhere }"
+            type="button"
+            role="switch"
+            :aria-checked="everywhere"
+            aria-label="Make aliases global"
+            :disabled="everywhereBusy || startupFiles === null || (!everywhere && !startupFiles.length)"
+            @click="setEverywhere(!everywhere)"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" />
+            </span>
+            {{ everywhere ? "On" : "Off" }}
+          </button>
         </div>
+        <!-- Only what needs you stays on the card. -->
         <p v-if="everywhereError" class="muted tiny settings-error alias-files-note">{{ everywhereError }}</p>
         <p v-else-if="startupFiles && !startupFiles.length" class="muted tiny alias-files-note">
           No zsh, bash or PowerShell startup files found.
         </p>
-        <ul v-else-if="startupFiles" class="alias-files">
-          <li v-for="file in startupFiles" :key="file.path">
+        <ul v-if="failedFiles.length" class="alias-files">
+          <li v-for="file in failedFiles" :key="file.path">
             <div class="alias-file-head">
               <span class="alias-file-shell">{{ file.shell }}</span>
               <code>{{ file.path }}</code>
+              <span class="alias-file-status bad">Couldn't change</span>
             </div>
-            <p class="muted tiny" :class="{ 'settings-error': file.error }">
-              {{ fileState(file) }}
-              <template v-if="file.writesTo && !file.error"> It's a link, so the change goes in {{ file.writesTo }}.</template>
-            </p>
-            <template v-if="file.error">
-              <code class="alias-file-line">{{ file.line }}</code>
-              <p class="muted tiny">{{ file.error }}</p>
-            </template>
+            <p class="muted tiny settings-error">Add this line to the file yourself:</p>
+            <code class="alias-file-line">{{ file.line }}</code>
+            <p class="muted tiny">{{ file.error }}</p>
           </li>
         </ul>
         <div v-if="missingFiles" class="alias-files-note">
           <button type="button" class="ghost" :disabled="everywhereBusy" @click="setEverywhere(true)">Set up the rest</button>
         </div>
-        <p v-if="everywhereChanged && everywhere && !everywhereError" class="muted tiny alias-files-note">
-          Terminals that are already open load them in their next new tab or window.
-        </p>
       </section>
+
+      <Teleport to="body">
+        <div
+          v-if="infoOpen"
+          ref="infoPopover"
+          class="alias-info-popover"
+          role="dialog"
+          aria-label="About making aliases global"
+          :style="{ left: `${infoPosition.left}px`, top: `${infoPosition.top}px` }"
+        >
+          <div class="alias-info-states">
+            <div class="alias-info-state" :class="{ current: !everywhere }">
+              <span class="alias-info-label">Off</span>
+              <span>Your aliases work only in Dispatch.</span>
+            </div>
+            <div class="alias-info-state" :class="{ current: everywhere }">
+              <span class="alias-info-label on">On</span>
+              <span>They work in every terminal on this computer.</span>
+            </div>
+          </div>
+          <h4 v-if="startupFiles?.length">Startup files</h4>
+          <ul v-if="startupFiles?.length" class="alias-files">
+            <li v-for="file in startupFiles" :key="file.path">
+              <div class="alias-file-head">
+                <span class="alias-file-shell">{{ file.shell }}</span>
+                <code>{{ file.path }}</code>
+                <span class="alias-file-status" :class="fileStatus(file).tone">{{ fileStatus(file).label }}</span>
+              </div>
+              <p v-if="fileNote(file) && !file.error" class="muted tiny">{{ fileNote(file) }}</p>
+            </li>
+          </ul>
+          <h4>How it works</h4>
+          <p class="muted tiny alias-files-how">
+            Dispatch saves your aliases in <code>~/.config/dispatch</code> and adds a small marked block to the top and
+            bottom of each file, so the rest of the file can use them. Turning this off removes only that block.
+            Terminals that are already open pick them up in their next new tab or window.
+          </p>
+        </div>
+      </Teleport>
 
       <section v-if="!groups.length" class="settings-card alias-empty">
         <p class="muted tiny">No aliases yet. Add a group to start, like “git” or “deploy”.</p>
@@ -475,13 +549,129 @@ svg {
   stroke: none;
 }
 
-.alias-files {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 0.75rem;
+.alias-global-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* A small circled i beside the title; opens what the switch does. */
+.alias-info {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+}
+
+button.alias-info:hover:not(:disabled),
+.alias-info.open {
+  background: none;
+  color: var(--text);
+}
+
+.alias-info svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Recon's .filter-popover, with room for text. */
+.alias-info-popover {
+  position: fixed;
+  z-index: 14;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.6rem;
+  width: 26rem;
+  max-width: calc(100vw - 8px);
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  box-shadow: 0 12px 32px var(--shadow-strong);
+  font-size: 13px;
+}
+
+.alias-info-popover p {
+  margin: 0;
+}
+
+.alias-info-popover h4 {
+  margin: 0.25rem 0 -0.2rem;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Off and On side by side as two rows; the one in effect now stands out. */
+.alias-info-states {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.alias-info-state {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  color: var(--muted);
+}
+
+.alias-info-state + .alias-info-state {
+  border-top: 1px solid var(--border);
+}
+
+.alias-info-state.current {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.alias-info-label {
+  flex: 0 0 2.6rem;
+  padding: 0.1rem 0;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-faint);
+}
+
+/* Only the badge for the setting in effect has color: red for Off, the accent for On. */
+.alias-info-state.current .alias-info-label {
+  color: var(--bad-text);
+}
+
+.alias-info-state.current .alias-info-label.on {
+  color: var(--accent-text);
+}
+
+.alias-info-popover .alias-files {
+  margin: 0;
+}
+
+.alias-files {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.alias-files li {
+  padding: 0.55rem 0.75rem;
+}
+
+.alias-files li + li {
+  border-top: 1px solid var(--border);
 }
 
 .alias-files li p {
@@ -490,9 +680,40 @@ svg {
 
 .alias-file-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
   min-width: 0;
+}
+
+.alias-file-head code {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.alias-file-status {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.alias-file-status.good {
+  color: var(--good);
+}
+
+.alias-file-status.info {
+  color: var(--accent-text);
+}
+
+.alias-file-status.bad {
+  color: var(--bad-text);
+}
+
+.alias-file-status.idle {
+  color: var(--text-faint);
 }
 
 .alias-file-shell {
@@ -518,6 +739,11 @@ svg {
 .alias-files-note {
   margin: 0;
   padding-bottom: 0.75rem;
+}
+
+.alias-files-how code {
+  font-family: var(--font-code);
+  font-size: 11px;
 }
 
 .alias-empty {

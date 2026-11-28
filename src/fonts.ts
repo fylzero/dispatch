@@ -20,9 +20,13 @@ export const FONT_OPTIONS: { id: string; label: string; stack: string }[] = [
 
 export const CUSTOM_FONT_ID = "custom";
 export const DEFAULT_CODE_FONT = "jetbrains";
-export const DEFAULT_FONT_SIZE = 16;
-export const FONT_SIZE_MIN = 9;
-export const FONT_SIZE_MAX = 32;
+export const DEFAULT_FONT_SIZE = 15;
+/* Any size Dispatch accepts, through Custom or the zoom keys. */
+export const FONT_SIZE_MIN = 8;
+export const FONT_SIZE_MAX = 64;
+/* The everyday range the Font size slider covers. */
+export const FONT_SIZE_SLIDER_MIN = 10;
+export const FONT_SIZE_SLIDER_MAX = 18;
 
 const FONT_ALIASES: Record<string, string> = {
   jetbrains: "jetbrains",

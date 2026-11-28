@@ -1,6 +1,57 @@
 import { computed, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { ITheme } from "@xterm/xterm";
 import type { ResolvedTheme, ThemePreference } from "./types";
+
+/** The terminal's colors in each theme, shared by the panes and the font preview in Settings. */
+export const TERMINAL_THEMES: Record<ResolvedTheme, ITheme> = {
+  dark: {
+    background: "#08090c",
+    foreground: "#e8edf5",
+    cursor: "#3dd6b4",
+    cursorAccent: "#08090c",
+    selectionBackground: "#2a3344",
+    black: "#1c2129",
+    red: "#f07178",
+    green: "#3dd68c",
+    yellow: "#e6c07b",
+    blue: "#7aa2f7",
+    magenta: "#c678dd",
+    cyan: "#56b6c2",
+    white: "#d7deea",
+    brightBlack: "#66707f",
+    brightRed: "#ff8b93",
+    brightGreen: "#5ee6a3",
+    brightYellow: "#f0d090",
+    brightBlue: "#9ab8ff",
+    brightMagenta: "#d899ea",
+    brightCyan: "#7ccbd5",
+    brightWhite: "#ffffff",
+  },
+  light: {
+    background: "#ffffff",
+    foreground: "#1c2330",
+    cursor: "#118777",
+    cursorAccent: "#ffffff",
+    selectionBackground: "#cfe0f7",
+    black: "#1c2330",
+    red: "#c9303a",
+    green: "#15803d",
+    yellow: "#a16207",
+    blue: "#2c5fcf",
+    magenta: "#9333ea",
+    cyan: "#0e7490",
+    white: "#6e7781",
+    brightBlack: "#5f6b7d",
+    brightRed: "#d1434b",
+    brightGreen: "#178a52",
+    brightYellow: "#b07a12",
+    brightBlue: "#2f6fdb",
+    brightMagenta: "#a855f7",
+    brightCyan: "#0891b2",
+    brightWhite: "#8c959f",
+  },
+};
 
 export const THEME_OPTIONS: { id: ThemePreference; label: string }[] = [
   { id: "system", label: "System" },

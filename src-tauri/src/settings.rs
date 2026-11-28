@@ -82,7 +82,7 @@ impl Default for Settings {
         Self {
             theme: "system".into(),
             font_family: "jetbrains".into(),
-            font_size: 16.0,
+            font_size: 15.0,
             line_height: 1.2,
             cursor_style: "bar".into(),
             cursor_blink: true,

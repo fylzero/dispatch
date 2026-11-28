@@ -1,8 +1,20 @@
 <script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { defaultShellPath } from "../../api";
 import { settings, updateSettings } from "../../settings";
 
+/* The shell a blank setting starts, shown as the placeholder so it's clear what blank means. */
+const defaultShell = ref("");
+onMounted(async () => {
+  try {
+    defaultShell.value = await defaultShellPath();
+  } catch {
+    /* Leave the generic placeholder. */
+  }
+});
+
 const SCROLLBACK_MIN = 500;
-const SCROLLBACK_MAX = 100_000;
+const SCROLLBACK_MAX = 1_000_000;
 
 function onShell(event: Event) {
   updateSettings({ shell: (event.target as HTMLInputElement).value.trim() });
@@ -22,6 +34,10 @@ function onScrollback(event: Event) {
   const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, value));
   input.value = String(clamped);
   updateSettings({ scrollback: clamped });
+}
+
+function maxScrollback() {
+  updateSettings({ scrollback: SCROLLBACK_MAX });
 }
 </script>
 
@@ -44,19 +60,20 @@ function onScrollback(event: Event) {
               straight back. Quit from the menu bar icon to really quit.
             </p>
           </div>
-          <div class="settings-control">
-            <button
-              class="switch"
-              :class="{ on: settings.keepRunningInBackground }"
-              type="button"
-              role="switch"
-              :aria-checked="settings.keepRunningInBackground"
-              aria-label="Keep running in the background"
-              @click="updateSettings({ keepRunningInBackground: !settings.keepRunningInBackground })"
-            >
-              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
-            </button>
-          </div>
+          <button
+            class="switch"
+            :class="{ on: settings.keepRunningInBackground }"
+            type="button"
+            role="switch"
+            :aria-checked="settings.keepRunningInBackground"
+            aria-label="Keep running in the background"
+            @click="updateSettings({ keepRunningInBackground: !settings.keepRunningInBackground })"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" />
+            </span>
+            {{ settings.keepRunningInBackground ? "On" : "Off" }}
+          </button>
         </div>
         <div class="settings-row">
           <div class="settings-row-copy">
@@ -66,30 +83,31 @@ function onScrollback(event: Event) {
               ready, and Dispatch asks before installing it.
             </p>
           </div>
-          <div class="settings-control">
-            <button
-              class="switch"
-              :class="{ on: settings.autoCheckUpdates }"
-              type="button"
-              role="switch"
-              :aria-checked="settings.autoCheckUpdates"
-              aria-label="Check for updates automatically"
-              @click="updateSettings({ autoCheckUpdates: !settings.autoCheckUpdates })"
-            >
-              <span class="switch-track" aria-hidden="true"><span class="switch-knob" /></span>
-            </button>
-          </div>
+          <button
+            class="switch"
+            :class="{ on: settings.autoCheckUpdates }"
+            type="button"
+            role="switch"
+            :aria-checked="settings.autoCheckUpdates"
+            aria-label="Check for updates automatically"
+            @click="updateSettings({ autoCheckUpdates: !settings.autoCheckUpdates })"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" />
+            </span>
+            {{ settings.autoCheckUpdates ? "On" : "Off" }}
+          </button>
         </div>
         <div class="settings-row">
           <div class="settings-row-copy">
-            <h3>Shell</h3>
-            <p class="muted tiny">Leave blank to use your login shell. Applies to new tabs.</p>
+            <h3>Default shell</h3>
+            <p class="muted tiny">The program new tabs run. Leave blank to use your account's shell. Applies to new tabs.</p>
           </div>
           <div class="settings-control settings-text">
             <input
               type="text"
               :value="settings.shell"
-              placeholder="Login shell"
+              :placeholder="defaultShell || 'Your account\'s shell'"
               autocapitalize="off"
               autocorrect="off"
               autocomplete="off"
@@ -119,9 +137,18 @@ function onScrollback(event: Event) {
         <div class="settings-row">
           <div class="settings-row-copy">
             <h3>Scrollback</h3>
-            <p class="muted tiny">Lines each tab keeps above the screen.</p>
+            <p class="muted tiny">Lines each tab keeps above the screen, up to a million for long logs. More lines use more memory once a tab fills them.</p>
           </div>
-          <div class="settings-fields">
+          <div class="settings-fields scrollback-fields">
+            <button
+              type="button"
+              class="link-button"
+              :disabled="settings.scrollback >= SCROLLBACK_MAX"
+              title="Keep as many lines as Dispatch allows"
+              @click="maxScrollback"
+            >
+              Max
+            </button>
             <label class="settings-field">
               <span class="visually-hidden">Scrollback lines</span>
               <input
@@ -139,3 +166,9 @@ function onScrollback(event: Event) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.scrollback-fields {
+  align-items: center;
+}
+</style>

@@ -4,11 +4,15 @@ import {
   CUSTOM_FONT_ID,
   DEFAULT_FONT_SIZE,
   FONT_OPTIONS,
+  clampFontSize,
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
+  FONT_SIZE_SLIDER_MAX,
+  FONT_SIZE_SLIDER_MIN,
   formatFontSize,
   isPresetFont,
 } from "../../fonts";
+import FontPreview from "../../components/FontPreview.vue";
 import { isMac, isWindows } from "../../platform";
 import { DEFAULT_SETTINGS, settings, updateSettings } from "../../settings";
 import { THEME_OPTIONS } from "../../theme";
@@ -42,6 +46,36 @@ function onCustomFont(event: Event) {
   customFont.value = value;
   if (value) updateSettings({ fontFamily: value });
 }
+
+/*
+ * Font size: a slider for the everyday range, or Custom for any size Dispatch
+ * accepts. A size outside the slider's range (set here or with the zoom keys)
+ * shows as Custom.
+ */
+const outsideSlider = (size: number) => size < FONT_SIZE_SLIDER_MIN || size > FONT_SIZE_SLIDER_MAX;
+const customSize = ref(outsideSlider(settings.value.fontSize));
+
+watch(
+  () => settings.value.fontSize,
+  (size) => {
+    if (outsideSlider(size)) customSize.value = true;
+  },
+);
+
+function onCustomSize(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const size = clampFontSize(Number(input.value), settings.value.fontSize);
+  input.value = String(size);
+  updateSettings({ fontSize: size });
+}
+
+function useSlider() {
+  customSize.value = false;
+  const size = settings.value.fontSize;
+  const inRange = Math.min(FONT_SIZE_SLIDER_MAX, Math.max(FONT_SIZE_SLIDER_MIN, size));
+  if (inRange !== size) updateSettings({ fontSize: inRange });
+}
+
 
 const OPACITY_MIN = 0.3;
 const BLUR_MAX = 40;
@@ -102,6 +136,10 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
             </button>
           </div>
         </div>
+      </section>
+
+      <!-- Everything that changes how the preview at the bottom of this card looks. -->
+      <section class="settings-card">
         <div class="settings-row" :class="{ 'settings-row-stacked': usingCustom }">
           <div class="settings-row-copy">
             <h3>Font</h3>
@@ -137,19 +175,42 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
             <h3>Font size</h3>
             <p class="muted tiny">Also changes with {{ zoomKeys }}.</p>
           </div>
-          <div class="settings-control settings-slider">
-            <label class="settings-slider-input">
-              <span class="visually-hidden">Font size</span>
-              <input
-                type="range"
-                :min="FONT_SIZE_MIN"
-                :max="FONT_SIZE_MAX"
-                step="0.5"
-                :value="settings.fontSize"
-                @input="updateSettings({ fontSize: numberFrom($event) })"
-              />
-            </label>
-            <span class="settings-slider-value">{{ formatFontSize(settings.fontSize) }}</span>
+          <div class="settings-control settings-slider font-size-control">
+            <!-- Sits just left of the control, so the slider keeps the same width as the others. -->
+            <button v-if="!customSize" type="button" class="link-button font-size-mode" @click="customSize = true">
+              Custom
+            </button>
+            <template v-if="customSize">
+              <div class="font-size-custom">
+                <button type="button" class="link-button" @click="useSlider">Slider</button>
+                <label class="font-size-custom-input">
+                  <span class="visually-hidden">Font size in pixels</span>
+                  <input
+                    type="number"
+                    :min="FONT_SIZE_MIN"
+                    :max="FONT_SIZE_MAX"
+                    step="0.5"
+                    :value="settings.fontSize"
+                    @change="onCustomSize"
+                  />
+                  <span class="muted tiny">px</span>
+                </label>
+              </div>
+            </template>
+            <template v-else>
+              <label class="settings-slider-input">
+                <span class="visually-hidden">Font size</span>
+                <input
+                  type="range"
+                  :min="FONT_SIZE_SLIDER_MIN"
+                  :max="FONT_SIZE_SLIDER_MAX"
+                  step="0.5"
+                  :value="settings.fontSize"
+                  @input="updateSettings({ fontSize: numberFrom($event) })"
+                />
+              </label>
+              <span class="settings-slider-value">{{ formatFontSize(settings.fontSize) }}</span>
+            </template>
             <button
               class="ghost tiny"
               type="button"
@@ -245,6 +306,13 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
             </button>
           </div>
         </div>
+        <div class="font-preview-section">
+          <h3>Preview</h3>
+          <FontPreview />
+        </div>
+      </section>
+
+      <section class="settings-card">
         <div class="settings-row">
           <div class="settings-row-copy">
             <h3>Dim unfocused panes</h3>
@@ -313,3 +381,50 @@ const numberFrom = (event: Event) => Number((event.target as HTMLInputElement).v
     </div>
   </div>
 </template>
+
+<style scoped>
+.font-size-control {
+  position: relative;
+}
+
+.font-size-mode {
+  position: absolute;
+  right: calc(100% + 1rem);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.font-size-custom {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  /* Same 1rem the Custom link keeps from the slider. */
+  gap: 1rem;
+}
+
+.font-size-custom-input {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.font-size-custom input {
+  width: 5.5rem;
+}
+
+/* Separated like a row; last in its card, so 0.75rem plus the card's 0.35rem matches the 1.1rem under a row. */
+.font-preview-section {
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 0;
+}
+
+/* Same as a row's title. */
+.font-preview-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+</style>

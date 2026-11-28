@@ -98,6 +98,12 @@ pub(crate) fn login_shell() -> String {
     default_shell()
 }
 
+/// The shell new tabs start when Settings names none, for the Default shell placeholder.
+#[tauri::command]
+pub fn default_shell_path() -> String {
+    login_shell()
+}
+
 fn lock_sessions(
     state: &TerminalState,
 ) -> Result<std::sync::MutexGuard<'_, HashMap<String, TerminalSession>>, String> {

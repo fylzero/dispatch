@@ -20,6 +20,7 @@ export interface StartupFile {
   line: string;
   error: string | null;
 }
+export const defaultShellPath = () => invoke<string>("default_shell_path");
 export const aliasStartupFiles = () => invoke<StartupFile[]>("alias_startup_files");
 export const setAliasesEverywhere = (enabled: boolean) =>
   invoke<StartupFile[]>("set_aliases_everywhere", { enabled });

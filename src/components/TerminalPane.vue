@@ -9,61 +9,13 @@ import { homeDir } from "@tauri-apps/api/path";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as api from "../api";
 import { fontFaceName, resolveFontStack } from "../fonts";
+import { CHIP_ICONS } from "../promptChips";
 import { isMac, isWindows } from "../platform";
 import { settings } from "../settings";
 import { createSuggestions, type Suggestions } from "../suggestions";
 import { closePane, dividerDragging, registerTerminal, setTerminalTitle, takeStartDir } from "../tabs";
-import { resolvedTheme } from "../theme";
+import { resolvedTheme, TERMINAL_THEMES } from "../theme";
 import type { ResolvedTheme } from "../types";
-
-const TERMINAL_THEMES: Record<ResolvedTheme, ITheme> = {
-  dark: {
-    background: "#08090c",
-    foreground: "#e8edf5",
-    cursor: "#3dd6b4",
-    cursorAccent: "#08090c",
-    selectionBackground: "#2a3344",
-    black: "#1c2129",
-    red: "#f07178",
-    green: "#3dd68c",
-    yellow: "#e6c07b",
-    blue: "#7aa2f7",
-    magenta: "#c678dd",
-    cyan: "#56b6c2",
-    white: "#d7deea",
-    brightBlack: "#66707f",
-    brightRed: "#ff8b93",
-    brightGreen: "#5ee6a3",
-    brightYellow: "#f0d090",
-    brightBlue: "#9ab8ff",
-    brightMagenta: "#d899ea",
-    brightCyan: "#7ccbd5",
-    brightWhite: "#ffffff",
-  },
-  light: {
-    background: "#ffffff",
-    foreground: "#1c2330",
-    cursor: "#118777",
-    cursorAccent: "#ffffff",
-    selectionBackground: "#cfe0f7",
-    black: "#1c2330",
-    red: "#c9303a",
-    green: "#15803d",
-    yellow: "#a16207",
-    blue: "#2c5fcf",
-    magenta: "#9333ea",
-    cyan: "#0e7490",
-    white: "#6e7781",
-    brightBlack: "#5f6b7d",
-    brightRed: "#d1434b",
-    brightGreen: "#178a52",
-    brightYellow: "#b07a12",
-    brightBlue: "#2f6fdb",
-    brightMagenta: "#a855f7",
-    brightCyan: "#0891b2",
-    brightWhite: "#8c959f",
-  },
-};
 
 /**
  * xterm draws on a clear background so the window opacity shows through; it
@@ -96,12 +48,6 @@ let unregister: (() => void) | undefined;
  * the chip's border and icon.
  */
 const PROMPT_OSC = 6973;
-const CHIP_ICONS: Record<string, string> = {
-  node: '<path d="M12 2.5 20.5 7.4v9.2L12 21.5l-8.5-4.9V7.4Z"/><path class="glyph" d="M10.2 9.5v4.4c0 1-.6 1.6-1.5 1.6M16.2 10.3c-.3-.6-.9-.9-1.6-.9-.9 0-1.5.5-1.5 1.2 0 1.7 3.2 1 3.2 2.9 0 .8-.7 1.3-1.6 1.3-.8 0-1.4-.4-1.7-1"/>',
-  cwd: '<path d="M20 19a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2h-7.6a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 8.2 3.5H4a2 2 0 0 0-2 2V17a2 2 0 0 0 2 2Z"/>',
-  branch: '<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
-  changes: "",
-};
 
 interface PromptChip {
   kind: string;

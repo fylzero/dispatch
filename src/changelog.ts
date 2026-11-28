@@ -6,6 +6,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.5.1",
+    date: "November 28, 2026",
+    notes: [
+      "Settings › Aliases is tidier. The switch for loading your aliases in other terminal apps is now called Make aliases global, and the card shows just the switch. The info button beside it explains what it does and lists each startup file with a badge saying whether it's active or not set up yet. A file Dispatch couldn't change still shows on the card, with the line to add yourself. The page's long description is gone too.",
+      "Every switch in Settings now says On or Off beside it, so you can tell its state at a glance.",
+      "Settings › General: Shell is now called Default shell, and when it's blank the box shows the shell new tabs will start, like /bin/zsh.",
+      "Scrollback can now keep up to a million lines per tab, up from 100,000, for long logs, and a Max button next to it sets the highest value in one click.",
+      "The default font size is now 15, down from 16. New installs and resetting the font size use 15; a size you picked yourself stays as it is.",
+      "Settings › Appearance: font, font size, line height, window opacity, and background blur now share a card with a live preview at the bottom. The preview is a real terminal in your prompt style, and it's see-through like your tabs, so you can see the opacity and blur as you change them. The Font size slider covers 10 to 18 in half steps, so it's easier to land on the size you want. Custom, beside the slider, takes any size from 8 to 64, and the zoom keys reach the same range.",
+      "Settings cards have the same space above their first setting as below their last, instead of extra room at the top.",
+    ],
+  },
+  {
     version: "1.5.0",
     date: "November 28, 2026",
     notes: [
