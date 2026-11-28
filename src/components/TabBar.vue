@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import LayoutMenu from "./LayoutMenu.vue";
+import NameLabel from "./NameLabel.vue";
 import { useUpdater } from "../composables/useUpdater";
 import { colorRgb } from "../colors";
 import { openContextMenu } from "../contextMenu";
@@ -245,7 +246,7 @@ onBeforeUnmount(() => {
           @blur="finishRename(true)"
           @dblclick.stop
         />
-        <span v-else class="tab-title">{{ tab.title }}</span>
+        <span v-else class="tab-title"><NameLabel :text="tab.title" :badges="tab.named" /></span>
         <button class="tab-close" type="button" :aria-label="`Close ${tab.title}`" @click.stop="closeTab(tab.id)">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
             <path

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import NameLabel from "./NameLabel.vue";
 import TerminalPane from "./TerminalPane.vue";
 import { colorRgb } from "../colors";
 import { openContextMenu } from "../contextMenu";
@@ -216,7 +217,7 @@ onBeforeUnmount(() => {
             @blur="finishRename(true)"
             @pointerdown.stop
           />
-          <span v-else class="pane-name" :title="paneName(pane.id)">{{ paneName(pane.id) }}</span>
+          <span v-else class="pane-name" :title="paneName(pane.id)"><NameLabel :text="paneName(pane.id)" /></span>
         </div>
       </div>
       <TerminalPane :id="pane.id" :active="visible && tab.activePane === pane.id" />

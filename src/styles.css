@@ -1728,6 +1728,18 @@ input.pane-rename:focus {
   white-space: nowrap;
 }
 
+/* Text typed in parentheses in a tab or pane name, shown as a pill in the name's own color. */
+.name-badge {
+  display: inline-block;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.45;
+  vertical-align: 0.06em;
+}
+
 /* The name's own box: sized to the text, so it can sit left, center or right. */
 .pane-label {
   display: flex;

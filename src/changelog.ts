@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.4.0",
+    date: "November 27, 2026",
+    notes: [
+      "Anything you type in parentheses when naming a tab or pane shows as a badge once you save the name, so \"api (staging)\" reads as api with a staging badge beside it. While you're renaming, the field shows the name just as you typed it. Titles the shell sets on its own, like \"vim (main)\", stay plain text.",
+    ],
+  },
+  {
     version: "1.3.0",
     date: "November 26, 2026",
     notes: [

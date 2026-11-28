@@ -46,6 +46,8 @@ export interface AppTab {
   kind: "terminal" | "settings" | "changelog";
   /** A color id from LABEL_COLORS, set from the tab's right-click menu. */
   color?: string;
+  /** True when the title is a name someone typed (the tab's or its pane's), not the shell's title. */
+  named?: boolean;
 }
 
 /** A terminal tab: a tree of split panes and the one that has focus. */
@@ -108,6 +110,7 @@ export const tabs = computed<AppTab[]>(() => [
     title: tab.name || titleOf(tab.activePane),
     kind: "terminal" as const,
     color: tab.color,
+    named: Boolean(tab.name || paneNames.value[tab.activePane]),
   })),
   ...(settingsTabOpen.value ? [{ id: SETTINGS_TAB_ID, title: "Settings", kind: "settings" as const }] : []),
   ...(changelogTabOpen.value ? [{ id: CHANGELOG_TAB_ID, title: "Change Log", kind: "changelog" as const }] : []),
