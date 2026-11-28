@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     notes: [
       "Anything you type in parentheses when naming a tab or pane shows as a badge once you save the name, so \"api (staging)\" reads as api with a staging badge beside it. While you're renaming, the field shows the name just as you typed it. Titles the shell sets on its own, like \"vim (main)\", stay plain text.",
       "Right-clicking the folder or branch in the last command's prompt, kept at the top of the pane as you scroll, offers Copy Path or Copy Branch Name again, the same as in the prompt itself.",
+      "With text selected in a pane, its right-click menu starts with Copy.",
     ],
   },
   {

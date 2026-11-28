@@ -1210,6 +1210,7 @@ onMounted(async () => {
       schedulePin();
     },
     selectAll,
+    selection: () => term?.getSelection() ?? "",
     type: (text) => term?.input(text),
     cwd: () => (sessionId ? api.terminalCwd(sessionId) : Promise.resolve(null)),
   });

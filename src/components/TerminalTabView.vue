@@ -19,6 +19,7 @@ import {
   focusTerminalPane,
   paneColor,
   paneName,
+  paneSelection,
   renamePane,
   renamingPane,
   setPaneColor,
@@ -98,11 +99,25 @@ function startResize(event: PointerEvent, divider: PlacedDivider) {
 
 const SPLIT_RIGHT_HINT = isMac ? "⌘D" : "Ctrl+Shift+D";
 const SPLIT_DOWN_HINT = isMac ? "⌘⇧D" : "Ctrl+Shift+E";
+const COPY_HINT = isMac ? "⌘C" : "Ctrl+Shift+C";
 const CLOSE_HINT = isMac ? "⌘W" : "Ctrl+Shift+W";
 
 function onPaneContextMenu(event: MouseEvent, paneId: string) {
+  /* Taken now, so Copy puts on the clipboard what was selected when the menu opened. */
+  const selected = paneSelection(paneId);
   focusPane(props.tab.id, paneId);
   openContextMenu(event, [
+    ...(selected
+      ? ([
+          {
+            kind: "item",
+            label: "Copy",
+            hint: COPY_HINT,
+            action: () => void navigator.clipboard.writeText(selected).catch(() => undefined),
+          },
+          { kind: "separator" },
+        ] as const)
+      : []),
     { kind: "item", label: paneName(paneId) ? "Rename Pane…" : "Name Pane…", action: () => startRename(paneId) },
     { kind: "colors", label: "Pane Color", value: paneColor(paneId), pick: (color) => setPaneColor(paneId, color) },
     { kind: "separator" },

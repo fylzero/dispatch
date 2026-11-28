@@ -66,6 +66,8 @@ export interface TerminalHandle {
   focus(): void;
   clear(): void;
   selectAll(): void;
+  /** The text selected in the pane, or "" when nothing is. */
+  selection(): string;
   /** Types text into the shell as if from the keyboard (not a bracketed paste, which zsh highlights). */
   type(text: string): void;
   /** The folder the pane's shell is in now, when it can be told. */
@@ -358,6 +360,11 @@ export function setPaneColor(paneId: string, color: string | undefined) {
 }
 
 /** Puts the pane's shell back in focus, e.g. after a menu or a rename closes. */
+/** The text selected in a pane, for its right-click menu. */
+export function paneSelection(paneId: string) {
+  return handles.get(paneId)?.selection() ?? "";
+}
+
 export function focusTerminalPane(paneId?: string) {
   const id = paneId ?? activeTab()?.activePane;
   if (id) void nextTick(() => handles.get(id)?.focus());
